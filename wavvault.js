@@ -49,11 +49,11 @@ function el(tag, attrs = {}, ...children) {
   }
   for (const child of children) {
     if (child == null) continue;
+    // This is the magic line: it forces text to be a TextNode, not HTML
     node.appendChild(typeof child === 'string' ? document.createTextNode(child) : child);
   }
   return node;
 }
-
 function setText(id, text) {
   const node = document.getElementById(id);
   if (node) node.textContent = text;
