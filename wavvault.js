@@ -59,7 +59,7 @@ function el(tag, attrs = {}, ...children) {
 }
 function setText(id, text) {
   const node = document.getElementById(id);
-  if (node) node.textContent = text;
+  if (node) node.textContent = text; // textContent is immune to XSS
 }
 
 // Safe innerHTML only for STATIC markup (no user data interpolated)
