@@ -32,12 +32,15 @@ const CONFIG = (() => {
    XSS SANITIZATION
    Use this for ALL user-supplied strings that go into the DOM.
 ────────────────────────────────────── */
-const XSS_CHARS = { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":"&#x27;", '/':'&#x2F;' };
+const XSS_CHARS = {
+  '&':'&amp;', '<':'&lt;', '>':'&gt;', 
+  '"':'&quot;', "'":"&#x27;", '/':'&#x2F;'
+};
+
 function sanitize(str) {
   if (str == null) return '';
   return String(str).replace(/[&<>"'/]/g, c => XSS_CHARS[c]);
 }
-
 // Safe DOM helpers — avoids innerHTML for user data
 function el(tag, attrs = {}, ...children) {
   const node = document.createElement(tag);
