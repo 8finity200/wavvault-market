@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WAVVAULT — Buy & Sell Beats</title>
+
+<!--
+  ═══════════════════════════════════════════════════════════
+  ENVIRONMENT CONFIGURATION
+  ═══════════════════════════════════════════════════════════
+  Set api-base to your production backend URL before deploying.
+  Remove dev-mode meta tag (or set to "false") for production.
+
+  Production:
+    <meta name="api-base" content="https://api.wavvault.com/api">
+    (no dev-mode meta)
+
+  Development:
+    <meta name="api-base" content="http://localhost:3001/api">
+    <meta name="dev-mode"  content="true">
+  ═══════════════════════════════════════════════════════════
+-->
+<meta name="api-base" content="http://localhost:3001/api">
+<meta name="dev-mode"  content="true">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+<!-- WaveSurfer loaded before JS so it's available on DOMContentLoaded -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/wavesurfer.js/7.7.3/wavesurfer.min.js"></script>
+
+<link rel="stylesheet" href="wavvault.css">
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════ NAV -->
+<nav>
+  <a href="#" class="nav-logo">
+    <div class="nav-logo-mark">W</div>
+    <span class="nav-logo-text">WAVVAULT</span>
+  </a>
+
+  <ul class="nav-links">
+    <li><a href="#" class="active">Explore</a></li>
+    <li><a href="#">Trending</a></li>
+    <li><a href="#">Producers</a></li>
+    <li><a href="#">Packs</a></li>
+    <li><a href="#">Free Beats</a></li>
+    <li><a href="#">Licensing</a></li>
+  </ul>
+
+  <div class="nav-actions">
+    <!-- API health indicator — click to recheck -->
+    <div id="apiStatus" class="checking" onclick="checkHealth()" title="Click to ping backend">
+      <div id="apiDot"></div>
+      <span id="apiStatusLabel">API</span>
+    </div>
+
+    <!-- Logged-out state -->
+    <button class="btn btn-ghost" id="navOnboardBtn" style="font-size:12px;padding:7px 14px;">Sell Beats</button>
+    <button class="btn btn-ghost" id="navAuthBtn">Sign In</button>
+
+    <!-- Logged-in state (hidden until auth) -->
+    <div id="navUserArea">
+      <button class="btn btn-ghost" id="navDashBtn" style="font-size:12px;padding:7px 14px;">📊 Dashboard</button>
+      <div id="navUserId" style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--cyan);padding:6px 10px;background:rgba(0,212,255,0.08);border:1px solid rgba(0,212,255,0.2);border-radius:6px;"></div>
+      <button class="btn btn-ghost" id="navSignOutBtn" style="font-size:11px;padding:6px 12px;color:var(--text3);" title="Sign out">↩</button>
+    </div>
+
+    <button class="btn btn-ghost" id="cartToggle" style="gap:8px;">
+      <span>🛒</span> Cart
+      <div class="cart-dot" id="cartDot">0</div>
+    </button>
+    <button class="btn btn-primary" id="navUploadBtn">Upload Beat</button>
+  </div>
+</nav>
+
+<!-- ═══════════════════════════════════════════════ HERO -->
+<section class="hero">
+  <div class="hero-bg"></div>
+  <div class="hero-grid"></div>
+
+  <div class="hero-content fade-up">
+    <div class="hero-badge">
+      <div class="hero-badge-dot"></div>
+      84,200+ Beats Available
+    </div>
+
+    <h1>
+      BUY BEATS.<br>
+      <span class="line2">BUILD HITS.</span>
+    </h1>
+
+    <p class="hero-sub">
+      License studio-quality instrumentals from the world's best producers.
+      Instant delivery, high-quality WAV files, and full legal licensing — every track.
+    </p>
+
+    <div class="hero-ctas">
+      <button class="btn btn-primary" style="padding:13px 28px;font-size:15px;"
+        onclick="document.getElementById('explore').scrollIntoView({behavior:'smooth'})">
+        Browse Beats
+      </button>
+      <button class="btn btn-ghost" style="padding:13px 28px;font-size:15px;" id="sellBtn">
+        Sell Your Beats
+      </button>
+    </div>
+
+    <div class="hero-stats">
+      <div class="hstat"><div class="hstat-num">84<span>K</span></div><div class="hstat-label">Beats</div></div>
+      <div class="hstat"><div class="hstat-num">12<span>K</span></div><div class="hstat-label">Producers</div></div>
+      <div class="hstat"><div class="hstat-num">1.2<span>M</span></div><div class="hstat-label">Licenses Sold</div></div>
+      <div class="hstat"><div class="hstat-num">$8<span>M</span></div><div class="hstat-label">Paid Out</div></div>
+    </div>
+  </div>
+
+  <!-- Featured beat card -->
+  <div class="hero-visual fade-up-3" id="heroVisual">
+    <div class="featured-beat-card">
+      <div class="fbc-header">
+        <div class="fbc-artwork">🖤</div>
+        <div class="fbc-meta">
+          <div class="fbc-title">Dark Prophecy</div>
+          <div class="fbc-artist">by MetroKing</div>
+          <div class="fbc-badges">
+            <span class="fbc-badge badge-bpm">140 BPM</span>
+            <span class="fbc-badge badge-key">Am</span>
+            <span class="fbc-badge badge-hot">🔥 Hot</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="fbc-waveform-wrap" id="heroWaveform">
+        <div class="wf-loading" id="heroLoading">
+          <div class="wf-bar"></div><div class="wf-bar"></div>
+          <div class="wf-bar"></div><div class="wf-bar"></div>
+          <div class="wf-bar"></div>
+        </div>
+      </div>
+
+      <div class="fbc-controls">
+        <button class="fbc-play" id="heroPlayBtn" onclick="toggleHeroPlay()">▶</button>
+        <div class="fbc-price-area">
+          <div class="fbc-price">$29<span style="font-family:'JetBrains Mono';font-size:14px;color:var(--text2)">.99</span></div>
+          <div class="fbc-price-sub">Starting price</div>
+        </div>
+      </div>
+
+      <div class="fbc-license-row">
+        <button class="fbc-lic-btn lic-mp3"  onclick="showToast('MP3 Basic License — $29.99','🎵')">MP3</button>
+        <button class="fbc-lic-btn lic-wav"  onclick="showToast('WAV + Trackout — $59.99','🎧')">WAV</button>
+        <button class="fbc-lic-btn lic-excl" onclick="showToast('Exclusive Rights — $499','⭐')">EXCL</button>
+      </div>
+    </div>
+    <!-- Floating stats cards -->
+    <div class="float-card" style="top:-24px;right:-20px;color:var(--green);">
+      <span>📈</span> <span style="color:var(--text);">+2.4K plays today</span>
+    </div>
+    <div class="float-card" style="bottom:24px;right:-28px;">
+      <span>🔥</span> <span style="color:var(--orange);">147 sold this week</span>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════ SCROLLING PRODUCERS -->
+<div class="producers-bar">
+  <div class="pb-label">Top Producers</div>
+  <div style="overflow:hidden;flex:1;">
+    <div class="pb-track" id="pbTrack"></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════ PROMO BANNER -->
+<div class="promo-banner" style="margin-top:60px;">
+  <div class="pb-left">
+    <div class="pb-eyebrow">⚡ Limited Drop</div>
+    <div class="pb-title">METRO BOOMIN<br>TYPE PACK · VOL 7</div>
+    <div class="pb-sub">12 dark trap instrumentals with full stems. Exclusive early-access pricing for 48 hours only.</div>
+  </div>
+  <div class="pb-right">
+    <div style="font-family:'Bebas Neue';font-size:48px;background:var(--gradient);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1;">$89.99</div>
+    <div style="font-family:'JetBrains Mono';font-size:11px;color:var(--text3);margin-bottom:8px;text-decoration:line-through;">$149.99</div>
+    <button class="btn btn-primary" style="font-size:14px;padding:12px 28px;">Get The Pack</button>
+    <div id="promoTimer" style="font-family:'JetBrains Mono';font-size:10px;color:var(--text3);letter-spacing:1px;">⏳ 23:47:12 remaining</div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════ EXPLORE / BEAT LIST -->
+<section class="section" id="explore">
+  <div class="section-inner">
+    <div class="section-head">
+      <div>
+        <div class="section-eyebrow">// Browse</div>
+        <div class="section-title">TRENDING BEATS</div>
+        <div class="section-sub" id="beatCountLabel">Loading beats...</div>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center;">
+        <span style="font-family:'JetBrains Mono';font-size:11px;color:var(--text3);">VIEW:</span>
+        <button class="btn btn-ghost" style="padding:8px 14px;font-size:12px;" id="listViewBtn">☰ List</button>
+        <button class="btn btn-ghost" style="padding:8px 14px;font-size:12px;" id="gridViewBtn">⊞ Grid</button>
+      </div>
+    </div>
+
+    <!-- FILTER BAR -->
+    <div class="filter-bar">
+      <div class="search-wrap">
+        <span class="search-icon">🔍</span>
+        <input class="search-inp" type="text" placeholder="Search beats, producers, moods..." id="searchInp" autocomplete="off">
+      </div>
+      <div class="filter-divider"></div>
+      <div class="genre-chips">
+        <button class="chip active" data-genre="all">All</button>
+        <button class="chip" data-genre="trap">Trap</button>
+        <button class="chip" data-genre="drill">Drill</button>
+        <button class="chip" data-genre="rnb">R&amp;B</button>
+        <button class="chip" data-genre="lofi">Lo-Fi</button>
+        <button class="chip" data-genre="afro">Afrobeats</button>
+        <button class="chip" data-genre="pop">Pop</button>
+        <button class="chip" data-genre="hiphop">Hip-Hop</button>
+      </div>
+      <div class="filter-divider"></div>
+      <div class="bpm-wrap">
+        <span class="bpm-label">BPM ≤ <span id="bpmDisp">Any</span></span>
+        <input type="range" min="60" max="200" value="200" id="bpmRange">
+      </div>
+      <div class="filter-divider"></div>
+      <select class="sort-select" id="sortSel">
+        <option value="trending">🔥 Trending</option>
+        <option value="newest">✨ Newest</option>
+        <option value="price_asc">$ Low → High</option>
+        <option value="price_desc">$ High → Low</option>
+        <option value="plays">▶ Most Played</option>
+      </select>
+    </div>
+
+    <div class="beat-list" id="beatList"></div>
+    <div class="beat-grid-3 hidden" id="beatGrid" style="margin-top:0;"></div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════ NEW RELEASES -->
+<section class="section" style="padding-top:0;">
+  <div class="section-inner">
+    <div class="section-head">
+      <div>
+        <div class="section-eyebrow">// Fresh Drops</div>
+        <div class="section-title">NEW RELEASES</div>
+      </div>
+      <a href="#" class="btn btn-outline-cyan" style="font-size:13px;">View All</a>
+    </div>
+    <div class="beat-grid-4" id="newReleasesGrid"></div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════ PRODUCER SPOTLIGHT -->
+<section class="section" style="background:var(--dark2);border-top:1px solid var(--border);border-bottom:1px solid var(--border);">
+  <div class="section-inner">
+    <div class="section-head">
+      <div>
+        <div class="section-eyebrow">// Top Sellers</div>
+        <div class="section-title">PRODUCER SPOTLIGHT</div>
+      </div>
+      <a href="#" class="btn btn-outline-cyan" style="font-size:13px;">All Producers</a>
+    </div>
+    <div class="producer-cards" id="producerGrid"></div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════ FOOTER -->
+<footer class="footer">
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-logo-wrap">
+        <div class="footer-logo-mark">W</div>
+        <span class="footer-logotype">WAVVAULT</span>
+      </div>
+      <p class="footer-desc">The premier marketplace for buying and selling beats. License studio-quality instrumentals from top producers worldwide.</p>
+      <div class="footer-socials">
+        <a class="social-btn">𝕏</a>
+        <a class="social-btn">in</a>
+        <a class="social-btn">📸</a>
+        <a class="social-btn">▶</a>
+      </div>
+    </div>
+    <div>
+      <div class="footer-col-title">Explore</div>
+      <ul class="footer-links">
+        <li><a href="#">Trending Beats</a></li>
+        <li><a href="#">New Releases</a></li>
+        <li><a href="#">Free Beats</a></li>
+        <li><a href="#">Beat Packs</a></li>
+        <li><a href="#">Top Charts</a></li>
+      </ul>
+    </div>
+    <div>
+      <div class="footer-col-title">Sell</div>
+      <ul class="footer-links">
+        <li><a href="#">Upload Beats</a></li>
+        <li><a href="#">Producer Dashboard</a></li>
+        <li><a href="#">Pricing &amp; Plans</a></li>
+        <li><a href="#">Payouts</a></li>
+        <li><a href="#">Become Verified</a></li>
+      </ul>
+    </div>
+    <div>
+      <div class="footer-col-title">Support</div>
+      <ul class="footer-links">
+        <li><a href="#">Licensing Guide</a></li>
+        <li><a href="#">Help Center</a></li>
+        <li><a href="#">Contact Us</a></li>
+        <li><a href="#">Legal</a></li>
+        <li><a href="#">API Docs</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <span class="footer-copy">© 2026 WAVVAULT — Beat Marketplace · v2.5.0</span>
+    <div class="footer-meta">
+      <a href="#">Privacy Policy</a>
+      <a href="#">Terms of Service</a>
+      <a href="#">Cookie Policy</a>
+      <a href="#">DMCA</a>
+    </div>
+  </div>
+</footer>
+
+<!-- ═══════════════════════════════════════════════ STICKY PLAYER -->
+<div class="sticky-player" id="stickyPlayer">
+  <div class="sp-art" id="spArt">🎵</div>
+  <div class="sp-info">
+    <div class="sp-title" id="spTitle">—</div>
+    <div class="sp-artist" id="spArtist">No track selected</div>
+    <div class="sp-tags" id="spTags"></div>
+  </div>
+  <div class="sp-controls">
+    <button class="sp-btn" id="prevBtn" title="Previous">⏮</button>
+    <button class="sp-play" id="mainPlay">▶</button>
+    <button class="sp-btn" id="nextBtn" title="Next">⏭</button>
+  </div>
+  <div class="sp-progress">
+    <span class="sp-time" id="spCur">0:00</span>
+    <div class="sp-track" id="spTrack">
+      <div class="sp-fill" id="spFill"></div>
+    </div>
+    <span class="sp-time end" id="spDur">0:00</span>
+  </div>
+  <div class="sp-vol">
+    <span class="sp-vol-icon">🔊</span>
+    <input type="range" class="sp-vol-slider" min="0" max="1" step="0.01" value="0.8" id="volSlider">
+  </div>
+  <button class="btn btn-orange" style="font-size:12px;padding:8px 16px;flex-shrink:0;" id="spAddCart">+ Cart</button>
+</div>
+
+<!-- ═══════════════════════════════════════════════ CART PANEL -->
+<div class="modal-overlay" id="cartModal">
+  <div class="cart-panel">
+    <div class="cart-header">
+      <div>
+        <div class="cart-title">YOUR CART</div>
+        <div style="font-family:'JetBrains Mono';font-size:11px;color:var(--text3);" id="cartItemCount">0 items</div>
+      </div>
+      <button class="cart-close" onclick="closeCart()">✕</button>
+    </div>
+    <div class="cart-items" id="cartItemsEl">
+      <div class="cart-empty">
+        <div class="cart-empty-icon">🎵</div>
+        <strong style="color:var(--text2);">Your cart is empty</strong>
+        <span>Add beats to checkout</span>
+      </div>
+    </div>
+    <div class="cart-footer" id="cartFooter" style="display:none;">
+      <div class="cart-subtotal">
+        <span class="cst-label">Total</span>
+        <span class="cst-val" id="cartTotal">$0.00</span>
+      </div>
+      <button class="checkout-btn" id="cartCheckoutBtn">Checkout with Stripe →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════ AUTH MODAL -->
+<div class="modal-overlay" id="authModal" style="align-items:center;justify-content:center;">
+  <div style="background:var(--dark);border:1px solid var(--border2);border-radius:20px;width:420px;padding:40px;position:relative;">
+    <button onclick="closeModal('authModal')" style="position:absolute;top:16px;right:16px;background:var(--dark3);border:1px solid var(--border);border-radius:8px;width:32px;height:32px;cursor:pointer;color:var(--text2);font-size:16px;">✕</button>
+    <div style="text-align:center;margin-bottom:28px;">
+      <div style="width:48px;height:48px;background:var(--gradient);border-radius:12px;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue';font-size:22px;color:#000;margin:0 auto 12px;">W</div>
+      <div style="font-family:'Bebas Neue';font-size:26px;letter-spacing:2px;">SIGN IN</div>
+      <div style="font-size:13px;color:var(--text3);margin-top:4px;">Access your WAVVAULT account</div>
+    </div>
+    <!-- Dev bypass panel — only visible when dev-mode meta is true -->
+    <div id="authDevBypass" style="background:rgba(0,212,255,0.08);border:1px solid rgba(0,212,255,0.2);border-radius:10px;padding:14px;margin-bottom:20px;">
+      <div style="font-family:'JetBrains Mono';font-size:10px;color:var(--cyan);letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;">⚡ Dev Mode Active</div>
+      <input id="devUserId" type="text" value="dev-user-001" placeholder="x-dev-user-id"
+        style="width:100%;background:var(--dark2);border:1px solid var(--border2);border-radius:8px;padding:10px 12px;color:var(--text);font-family:'JetBrains Mono';font-size:13px;outline:none;">
+    </div>
+    <button onclick="authSignIn()" class="checkout-btn" style="margin-bottom:12px;">Sign In (Dev Bypass)</button>
+    <div style="font-family:'JetBrains Mono';font-size:10px;color:var(--text3);text-align:center;letter-spacing:1px;">Production: remove dev-mode meta → use Clerk JWT</div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════ UPLOAD BEAT MODAL -->
+<div class="modal-overlay" id="uploadModal" style="align-items:center;justify-content:center;">
+  <div style="background:var(--dark);border:1px solid var(--border2);border-radius:20px;width:540px;padding:40px;position:relative;max-height:90vh;overflow-y:auto;">
+    <button onclick="closeModal('uploadModal')" style="position:absolute;top:16px;right:16px;background:var(--dark3);border:1px solid var(--border);border-radius:8px;width:32px;height:32px;cursor:pointer;color:var(--text2);font-size:16px;">✕</button>
+    <div style="font-family:'Bebas Neue';font-size:26px;letter-spacing:2px;margin-bottom:4px;">UPLOAD BEAT</div>
+    <div style="font-family:'JetBrains Mono';font-size:10px;color:var(--text3);letter-spacing:2px;margin-bottom:28px;">POST /api/beats/upload → S3 → /api/beats/:id/process</div>
+
+    <div style="display:flex;gap:0;margin-bottom:28px;">
+      <div class="upload-step active" data-step="1">1 · Select File</div>
+      <div class="upload-step"        data-step="2">2 · Metadata</div>
+      <div class="upload-step"        data-step="3">3 · Upload</div>
+      <div class="upload-step"        data-step="4">4 · Processing</div>
+    </div>
+
+    <!-- Step 1 -->
+    <div id="upStep1">
+      <div id="dropZone" onclick="document.getElementById('fileInput').click()"
+        style="border:2px dashed var(--border2);border-radius:14px;padding:48px 24px;text-align:center;cursor:pointer;transition:all 0.2s;background:var(--dark2);">
+        <div style="font-size:40px;margin-bottom:12px;">🎵</div>
+        <div style="font-size:15px;font-weight:600;color:var(--text);margin-bottom:6px;">Drop your WAV or MP3 here</div>
+        <div style="font-size:13px;color:var(--text3);">or click to browse · Max 500MB</div>
+        <div style="margin-top:16px;font-family:'JetBrains Mono';font-size:10px;color:var(--text3);letter-spacing:1px;">WAV · MP3 · AIFF · FLAC</div>
+      </div>
+      <input type="file" id="fileInput" accept="audio/*" style="display:none;" onchange="handleFileSelect(this)">
+      <div id="fileInfo" style="display:none;margin-top:16px;background:var(--dark2);border:1px solid var(--border2);border-radius:10px;padding:14px 16px;align-items:center;gap:12px;">
+        <span style="font-size:24px;">🎧</span>
+        <div style="flex:1;">
+          <div id="fileName" style="font-size:13px;font-weight:600;color:var(--text);"></div>
+          <div id="fileSize" style="font-family:'JetBrains Mono';font-size:11px;color:var(--text3);"></div>
+        </div>
+        <button onclick="clearFile()" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:18px;">✕</button>
+      </div>
+      <button onclick="goToStep(2)" id="step1Next" disabled class="checkout-btn" style="margin-top:20px;opacity:0.4;">Continue →</button>
+    </div>
+
+    <!-- Step 2 -->
+    <div id="upStep2" style="display:none;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
+        <div>
+          <label style="font-family:'JetBrains Mono';font-size:10px;color:var(--text3);letter-spacing:2px;display:block;margin-bottom:6px;text-transform:uppercase;">Title *</label>
+          <input id="upTitle" type="text" placeholder="e.g. Dark Prophecy" style="width:100%;background:var(--dark2);border:1px solid var(--border2);border-radius:8px;padding:10px 12px;color:var(--text);font-size:14px;outline:none;font-family:'Outfit';">
+        </div>
+        <div>
+          <label style="font-family:'JetBrains Mono';font-size:10px;color:var(--text3);letter-spacing:2px;display:block;margin-bottom:6px;text-transform:uppercase;">Genre *</label>
+          <select id="upGenre" style="width:100%;background:var(--dark2);border:1px solid var(--border2);border-radius:8px;padding:10px 12px;color:var(--text);font-size:14px;outline:none;font-family:'Outfit';cursor:pointer;">
+            <option value="">Select genre</option>
+            <option value="trap">Trap</option><option value="drill">Drill</option>
+            <option value="rnb">R&amp;B</option><option value="hiphop">Hip-Hop</option>
+            <option value="pop">Pop</option><option value="lofi">Lo-Fi</option>
+            <option value="afro">Afrobeats</option><option value="soul">Soul</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-family:'JetBrains Mono';font-size:10px;color:var(--text3);letter-spacing:2px;display:block;margin-bottom:6px;text-transform:uppercase;">BPM *</label>
+          <input id="upBpm" type="number" placeholder="140" min="60" max="220" style="width:100%;background:var(--dark2);border:1px solid var(--border2);border-radius:8px;padding:10px 12px;color:var(--text);font-size:14px;outline:none;font-family:'Outfit';">
+        </div>
+        <div>
+          <label style="font-family:'JetBrains Mono';font-size:10px;color:var(--text3);letter-spacing:2px;display:block;margin-bottom:6px;text-transform:uppercase;">Key</label>
+          <input id="upKey" type="text" placeholder="e.g. Am, F#m, C" style="width:100%;background:var(--dark2);border:1px solid var(--border2);border-radius:8px;padding:10px 12px;color:var(--text);font-size:14px;outline:none;font-family:'Outfit';">
+        </div>
+        <div>
+          <label style="font-family:'JetBrains Mono';font-size:10px;color:var(--text3);letter-spacing:2px;display:block;margin-bottom:6px;text-transform:uppercase;">Mood</label>
+          <input id="upMood" type="text" placeholder="e.g. Dark, Chill, Hype" style="width:100%;background:var(--dark2);border:1px solid var(--border2);border-radius:8px;padding:10px 12px;color:var(--text);font-size:14px;outline:none;font-family:'Outfit';">
+        </div>
+        <div>
+          <label style="font-family:'JetBrains Mono';font-size:10px;color:var(--text3);letter-spacing:2px;display:block;margin-bottom:6px;text-transform:uppercase;">Tags</label>
+          <input id="upTags" type="text" placeholder="dark, trap, 808" style="width:100%;background:var(--dark2);border:1px solid var(--border2);border-radius:8px;padding:10px 12px;color:var(--text);font-size:14px;outline:none;font-family:'Outfit';">
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:4px;">
+        <button onclick="goToStep(1)" class="btn btn-ghost" style="flex:1;">← Back</button>
+        <button onclick="startUpload()" class="checkout-btn" style="flex:2;">Upload to S3 →</button>
+      </div>
+    </div>
+
+    <!-- Step 3 -->
+    <div id="upStep3" style="display:none;text-align:center;padding:20px 0;">
+      <div style="font-size:36px;margin-bottom:16px;" id="upIcon">⬆️</div>
+      <div style="font-size:15px;font-weight:600;color:var(--text);margin-bottom:8px;" id="upStatusText">Getting presigned URL...</div>
+      <div style="background:var(--dark3);border-radius:4px;height:6px;margin:16px 0;overflow:hidden;">
+        <div id="upProgressBar" style="height:100%;background:var(--gradient);width:0%;transition:width 0.3s;border-radius:4px;"></div>
+      </div>
+      <div style="font-family:'JetBrains Mono';font-size:11px;color:var(--text3);" id="upProgressText">0%</div>
+      <div id="upApiLog" style="margin-top:20px;background:var(--dark2);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:left;font-family:'JetBrains Mono';font-size:11px;color:var(--text3);line-height:1.8;max-height:160px;overflow-y:auto;"></div>
+    </div>
+
+    <!-- Step 4 -->
+    <div id="upStep4" style="display:none;text-align:center;padding:20px 0;">
+      <div style="font-size:48px;margin-bottom:16px;">⚙️</div>
+      <div style="font-family:'Bebas Neue';font-size:22px;letter-spacing:2px;color:var(--green);margin-bottom:8px;">UPLOAD COMPLETE!</div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:24px;">Your beat has been queued for audio processing.</div>
+      <div style="background:var(--dark2);border:1px solid var(--border);border-radius:12px;padding:16px;text-align:left;margin-bottom:20px;">
+        <div style="font-family:'JetBrains Mono';font-size:10px;color:var(--text3);letter-spacing:2px;margin-bottom:10px;">// PROCESSING PIPELINE</div>
+        <div class="pipeline-step" id="pStep1">⏳ Stage 1: Analyzing audio (FFprobe)</div>
+        <div class="pipeline-step" id="pStep2" style="opacity:0.3;">⬜ Stage 2: Generating waveform peaks</div>
+        <div class="pipeline-step" id="pStep3" style="opacity:0.3;">⬜ Stage 3: Creating tagged preview (MP3)</div>
+        <div class="pipeline-step" id="pStep4" style="opacity:0.3;">⬜ Stage 4: Encoding clean WAV (24-bit)</div>
+        <div class="pipeline-step" id="pStep5" style="opacity:0.3;">⬜ Publishing beat live...</div>
+      </div>
+      <button onclick="closeModal('uploadModal');resetUpload();" class="checkout-btn">Done ✓</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════ ARTIST DASHBOARD MODAL -->
+<div class="modal-overlay" id="dashModal" style="align-items:center;justify-content:center;">
+  <div style="background:var(--dark);border:1px solid var(--border2);border-radius:20px;width:680px;padding:40px;position:relative;max-height:90vh;overflow-y:auto;">
+    <button onclick="closeModal('dashModal')" style="position:absolute;top:16px;right:16px;background:var(--dark3);border:1px solid var(--border);border-radius:8px;width:32px;height:32px;cursor:pointer;color:var(--text2);font-size:16px;">✕</button>
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:28px;">
+      <div style="width:52px;height:52px;background:var(--gradient);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:24px;">🎛</div>
+      <div>
+        <div style="font-family:'Bebas Neue';font-size:26px;letter-spacing:2px;">ARTIST DASHBOARD</div>
+        <div style="font-family:'JetBrains Mono';font-size:11px;color:var(--text3);">GET /api/artists/:id/dashboard</div>
+      </div>
+    </div>
+    <div id="dashContent">
+      <div style="text-align:center;padding:40px;color:var(--text3);">
+        <div style="font-size:36px;margin-bottom:12px;">🔒</div>
+        <div>Sign in to view your dashboard</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════ ONBOARD ARTIST MODAL -->
+<div class="modal-overlay" id="onboardModal" style="align-items:center;justify-content:center;">
+  <div style="background:var(--dark);border:1px solid var(--border2);border-radius:20px;width:480px;padding:40px;position:relative;">
+    <button onclick="closeModal('onboardModal')" style="position:absolute;top:16px;right:16px;background:var(--dark3);border:1px solid var(--border);border-radius:8px;width:32px;height:32px;cursor:pointer;color:var(--text2);font-size:16px;">✕</button>
+    <div style="font-family:'Bebas Neue';font-size:26px;letter-spacing:2px;margin-bottom:4px;">BECOME A PRODUCER</div>
+    <div style="font-family:'JetBrains Mono';font-size:10px;color:var(--text3);letter-spacing:2px;margin-bottom:28px;">POST /api/artists/onboard → Stripe Connect KYC</div>
+    <div style="display:flex;flex-direction:column;gap:14px;margin-bottom:20px;">
+      <div>
+        <label style="font-family:'JetBrains Mono';font-size:10px;color:var(--text3);letter-spacing:2px;display:block;margin-bottom:6px;text-transform:uppercase;">Display Name *</label>
+        <input id="onDisplay" type="text" placeholder="Your producer name" style="width:100%;background:var(--dark2);border:1px solid var(--border2);border-radius:8px;padding:10px 12px;color:var(--text);font-size:14px;outline:none;font-family:'Outfit';">
+      </div>
+      <div>
+        <label style="font-family:'JetBrains Mono';font-size:10px;color:var(--text3);letter-spacing:2px;display:block;margin-bottom:6px;text-transform:uppercase;">Producer Tag *</label>
+        <input id="onTag" type="text" placeholder="e.g. prod. YourName" style="width:100%;background:var(--dark2);border:1px solid var(--border2);border-radius:8px;padding:10px 12px;color:var(--text);font-size:14px;outline:none;font-family:'Outfit';">
+      </div>
+    </div>
+    <div style="background:rgba(0,212,255,0.06);border:1px solid rgba(0,212,255,0.15);border-radius:10px;padding:14px;margin-bottom:20px;font-size:12px;color:var(--text2);line-height:1.7;">
+      <div style="font-family:'JetBrains Mono';font-size:10px;color:var(--cyan);letter-spacing:1px;margin-bottom:6px;">WHAT HAPPENS NEXT</div>
+      → Creates artist profile (status: pending_kyc)<br>
+      → stripe.accounts.create({ type: 'express' })<br>
+      → Redirects to Stripe KYC onboarding<br>
+      → account.updated webhook activates your account<br>
+      → Platform takes 20% — you keep 80%
+    </div>
+    <button onclick="startOnboard()" class="checkout-btn">Continue to Stripe →</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════ BEAT DETAIL MODAL -->
+<div class="modal-overlay" id="beatDetailModal" style="align-items:center;justify-content:center;">
+  <div style="background:var(--dark);border:1px solid var(--border2);border-radius:20px;width:600px;padding:40px;position:relative;max-height:90vh;overflow-y:auto;">
+    <button onclick="closeModal('beatDetailModal')" style="position:absolute;top:16px;right:16px;background:var(--dark3);border:1px solid var(--border);border-radius:8px;width:32px;height:32px;cursor:pointer;color:var(--text2);font-size:16px;">✕</button>
+    <div id="beatDetailContent"></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════ TOAST -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- ═══════════════════════════════════════════════ JS -->
+<script src="wavvault.js" defer></script>
+</body>
+</html>

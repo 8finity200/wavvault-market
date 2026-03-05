@@ -1,0 +1,3079 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WAVVAULT — Buy & Sell Beats</title>
+
+<!--
+  ═══════════════════════════════════════════════════════════
+  ENVIRONMENT CONFIGURATION
+  ═══════════════════════════════════════════════════════════
+  Set api-base to your production backend URL before deploying.
+  Remove dev-mode meta tag (or set to "false") for production.
+
+  Production:
+    <meta name="api-base" content="https://api.wavvault.com/api">
+    (no dev-mode meta)
+
+  Development:
+    <meta name="api-base" content="http://localhost:3001/api">
+    <meta name="dev-mode"  content="true">
+  ═══════════════════════════════════════════════════════════
+-->
+<meta name="api-base" content="http://localhost:3001/api">
+<meta name="dev-mode"  content="true">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+<!-- WaveSurfer loaded before JS so it's available on DOMContentLoaded -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/wavesurfer.js/7.7.3/wavesurfer.min.js"></script>
+
+<style>
+/* ═══════════════════════════════════════
+   DESIGN TOKENS
+═══════════════════════════════════════ */
+:root {
+  --black:    #080B10;
+  --dark:     #0D1118;
+  --dark2:    #131923;
+  --dark3:    #1A2234;
+  --dark4:    #1F2A3E;
+  --border:   rgba(255,255,255,0.07);
+  --border2:  rgba(255,255,255,0.12);
+  --text:     #EDF2FF;
+  --text2:    #A8B5CC;
+  --text3:    #5A6B88;
+  --cyan:     #00D4FF;
+  --cyan2:    #00A8CC;
+  --orange:   #FF6B2B;
+  --orange2:  #E55A1C;
+  --green:    #00E5A0;
+  --purple:   #9B6BFF;
+  --gold:     #FFB800;
+  --red:      #FF3B5C;
+  --gradient: linear-gradient(135deg, #00D4FF 0%, #9B6BFF 100%);
+  --glow-c:   rgba(0,212,255,0.25);
+  --glow-o:   rgba(255,107,43,0.25);
+}
+
+*,*::before,*::after { margin:0; padding:0; box-sizing:border-box; }
+html { scroll-behavior:smooth; font-size:16px; }
+
+body {
+  background: var(--black);
+  color: var(--text);
+  font-family: 'Outfit', sans-serif;
+  line-height: 1.6;
+  overflow-x: hidden;
+  min-height: 100vh;
+}
+
+/* Grain overlay */
+body::after {
+  content:'';
+  position:fixed; inset:0;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+  pointer-events:none; z-index:9998;
+}
+
+/* ═══════════════════════════════════════
+   SCROLLBAR
+═══════════════════════════════════════ */
+::-webkit-scrollbar { width:4px; height:4px; }
+::-webkit-scrollbar-track { background:transparent; }
+::-webkit-scrollbar-thumb { background:var(--dark4); border-radius:2px; }
+::-webkit-scrollbar-thumb:hover { background:var(--text3); }
+
+/* ═══════════════════════════════════════
+   NAV
+═══════════════════════════════════════ */
+nav {
+  position: fixed; top:0; left:0; right:0; z-index:200;
+  height: 64px;
+  display: flex; align-items:center; justify-content:space-between;
+  padding: 0 32px;
+  background: rgba(8,11,16,0.82);
+  backdrop-filter: blur(20px) saturate(180%);
+  border-bottom: 1px solid var(--border);
+}
+
+.nav-logo {
+  display:flex; align-items:center; gap:10px;
+  text-decoration:none;
+}
+
+.nav-logo-mark {
+  width:34px; height:34px;
+  background: var(--gradient);
+  border-radius:8px;
+  display:flex; align-items:center; justify-content:center;
+  font-family:'Bebas Neue',sans-serif;
+  font-size:18px; color:#000; letter-spacing:1px;
+  flex-shrink:0;
+  box-shadow: 0 0 20px var(--glow-c);
+}
+
+.nav-logo-text {
+  font-family:'Bebas Neue',sans-serif;
+  font-size:22px; letter-spacing:3px;
+  background: var(--gradient);
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+  background-clip:text;
+}
+
+.nav-links {
+  display:flex; align-items:center; gap:4px; list-style:none;
+}
+
+.nav-links a {
+  padding:7px 14px; border-radius:6px;
+  font-size:13px; font-weight:500; color:var(--text2);
+  text-decoration:none; transition:all 0.2s;
+  letter-spacing:0.2px;
+}
+.nav-links a:hover { color:var(--text); background:rgba(255,255,255,0.06); }
+.nav-links a.active { color:var(--cyan); }
+
+.nav-actions { display:flex; align-items:center; gap:10px; }
+
+.btn {
+  display:inline-flex; align-items:center; justify-content:center; gap:6px;
+  padding:9px 20px; border-radius:8px;
+  font-family:'Outfit',sans-serif; font-size:13px; font-weight:600;
+  cursor:pointer; border:none; transition:all 0.2s; text-decoration:none;
+  letter-spacing:0.2px;
+}
+
+.btn-ghost {
+  background:transparent; color:var(--text2);
+  border:1px solid var(--border2);
+}
+.btn-ghost:hover { color:var(--text); border-color:rgba(255,255,255,0.25); }
+
+.btn-primary {
+  background: var(--gradient);
+  color:#000; font-weight:700;
+  box-shadow: 0 0 20px var(--glow-c);
+}
+.btn-primary:hover { transform:translateY(-1px); box-shadow:0 4px 30px var(--glow-c); }
+.btn-primary:active { transform:translateY(0); }
+
+.btn-outline-cyan {
+  background:transparent; color:var(--cyan);
+  border:1px solid rgba(0,212,255,0.4);
+}
+.btn-outline-cyan:hover { background:rgba(0,212,255,0.1); border-color:var(--cyan); }
+
+.btn-orange {
+  background:var(--orange); color:#fff; font-weight:700;
+  box-shadow:0 0 20px var(--glow-o);
+}
+.btn-orange:hover { background:var(--orange2); transform:translateY(-1px); }
+
+.cart-btn {
+  position:relative;
+}
+.cart-dot {
+  position:absolute; top:-4px; right:-4px;
+  width:18px; height:18px; border-radius:50%;
+  background:var(--red); color:#fff;
+  font-size:10px; font-weight:700;
+  display:flex; align-items:center; justify-content:center;
+  font-family:'JetBrains Mono',monospace;
+  transform:scale(0); transition:transform 0.3s cubic-bezier(0.175,0.885,0.32,1.275);
+  border:2px solid var(--black);
+}
+.cart-dot.show { transform:scale(1); }
+
+/* ═══════════════════════════════════════
+   HERO
+═══════════════════════════════════════ */
+.hero {
+  position:relative; overflow:hidden;
+  min-height: 100vh;
+  display:flex; align-items:center;
+  padding: 120px 32px 80px;
+}
+
+.hero-bg {
+  position:absolute; inset:0; z-index:0;
+  background:
+    radial-gradient(ellipse 80% 60% at 65% 40%, rgba(0,212,255,0.07) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 50% at 20% 70%, rgba(155,107,255,0.08) 0%, transparent 60%),
+    radial-gradient(ellipse 40% 40% at 80% 80%, rgba(255,107,43,0.05) 0%, transparent 60%);
+}
+
+/* Animated grid */
+.hero-grid {
+  position:absolute; inset:0; z-index:0;
+  background-image:
+    linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+  background-size: 60px 60px;
+  mask-image: radial-gradient(ellipse 100% 100% at 50% 0%, black 0%, transparent 70%);
+}
+
+.hero-content { position:relative; z-index:1; max-width:640px; }
+
+.hero-badge {
+  display:inline-flex; align-items:center; gap:8px;
+  background:rgba(0,212,255,0.1); border:1px solid rgba(0,212,255,0.25);
+  padding:6px 14px; border-radius:100px; margin-bottom:28px;
+  font-family:'JetBrains Mono',monospace; font-size:11px;
+  color:var(--cyan); letter-spacing:2px; text-transform:uppercase;
+}
+
+.hero-badge-dot {
+  width:6px; height:6px; border-radius:50%; background:var(--cyan);
+  animation: blink 2s ease-in-out infinite;
+}
+
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+.hero h1 {
+  font-family:'Bebas Neue',sans-serif;
+  font-size: clamp(56px, 9vw, 110px);
+  line-height:0.92;
+  letter-spacing:2px;
+  margin-bottom:28px;
+}
+
+.hero h1 .line2 {
+  background: var(--gradient);
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+  background-clip:text;
+  display:block;
+}
+
+.hero-sub {
+  font-size:17px; color:var(--text2); font-weight:400;
+  max-width:480px; line-height:1.7; margin-bottom:40px;
+}
+
+.hero-ctas { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:56px; }
+
+.hero-stats {
+  display:flex; gap:36px; padding-top:32px;
+  border-top:1px solid var(--border);
+}
+
+.hstat { display:flex; flex-direction:column; gap:3px; }
+.hstat-num {
+  font-family:'Bebas Neue',sans-serif; font-size:36px;
+  line-height:1; color:var(--text); letter-spacing:1px;
+}
+.hstat-num span { color:var(--cyan); }
+.hstat-label {
+  font-family:'JetBrains Mono',monospace; font-size:10px;
+  color:var(--text3); letter-spacing:2px; text-transform:uppercase;
+}
+
+/* Hero right — featured beat card */
+.hero-visual {
+  position:absolute; right:32px; top:50%; transform:translateY(-50%);
+  z-index:1; width:420px;
+}
+
+.featured-beat-card {
+  background:var(--dark2);
+  border:1px solid var(--border2);
+  border-radius:20px; padding:28px;
+  position:relative; overflow:hidden;
+  box-shadow:
+    0 40px 80px rgba(0,0,0,0.5),
+    0 0 0 1px rgba(255,255,255,0.04),
+    inset 0 1px 0 rgba(255,255,255,0.08);
+}
+
+.featured-beat-card::before {
+  content:''; position:absolute; top:-60px; right:-60px;
+  width:200px; height:200px; border-radius:50%;
+  background:radial-gradient(circle, rgba(0,212,255,0.12), transparent 70%);
+  pointer-events:none;
+}
+
+.fbc-header {
+  display:flex; align-items:center; gap:14px; margin-bottom:20px;
+}
+
+.fbc-artwork {
+  width:60px; height:60px; border-radius:12px;
+  background:linear-gradient(135deg, var(--dark4), var(--dark3));
+  border:1px solid var(--border2);
+  display:flex; align-items:center; justify-content:center;
+  font-size:28px; flex-shrink:0;
+  position:relative;
+}
+
+.fbc-artwork::after {
+  content:''; position:absolute; inset:0; border-radius:12px;
+  background:linear-gradient(135deg, rgba(0,212,255,0.15), rgba(155,107,255,0.1));
+}
+
+.fbc-meta { flex:1; min-width:0; }
+.fbc-title {
+  font-size:16px; font-weight:700; color:var(--text);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.fbc-artist { font-size:12px; color:var(--text3); font-family:'JetBrains Mono',monospace; margin-top:2px; }
+
+.fbc-badges { display:flex; gap:6px; margin-top:8px; }
+.fbc-badge {
+  font-family:'JetBrains Mono',monospace; font-size:9px;
+  font-weight:700; padding:3px 7px; border-radius:4px;
+  letter-spacing:0.5px; text-transform:uppercase;
+}
+
+.badge-bpm { background:rgba(0,212,255,0.12); color:var(--cyan); border:1px solid rgba(0,212,255,0.2); }
+.badge-key { background:rgba(155,107,255,0.12); color:var(--purple); border:1px solid rgba(155,107,255,0.2); }
+.badge-hot { background:rgba(255,107,43,0.15); color:var(--orange); border:1px solid rgba(255,107,43,0.25); }
+.badge-new { background:rgba(0,229,160,0.12); color:var(--green); border:1px solid rgba(0,229,160,0.2); }
+.badge-genre { background:rgba(255,255,255,0.07); color:var(--text2); border:1px solid var(--border); }
+.badge-excl { background:rgba(255,184,0,0.12); color:var(--gold); border:1px solid rgba(255,184,0,0.25); }
+
+.fbc-waveform-wrap {
+  height:64px; border-radius:10px; overflow:hidden;
+  background:var(--dark3); margin-bottom:20px;
+  position:relative;
+}
+
+.fbc-controls {
+  display:flex; align-items:center; justify-content:space-between;
+}
+
+.fbc-play {
+  width:48px; height:48px; border-radius:50%;
+  background:var(--gradient); border:none; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  font-size:18px; color:#000;
+  box-shadow:0 0 24px var(--glow-c);
+  transition:all 0.2s; flex-shrink:0;
+}
+.fbc-play:hover { transform:scale(1.08); }
+
+.fbc-price-area { text-align:right; }
+.fbc-price {
+  font-family:'Bebas Neue',sans-serif; font-size:32px;
+  color:var(--text); letter-spacing:1px; line-height:1;
+}
+.fbc-price-sub { font-size:11px; color:var(--text3); font-family:'JetBrains Mono',monospace; }
+
+.fbc-license-row {
+  display:flex; gap:6px; margin-top:16px;
+}
+
+.fbc-lic-btn {
+  flex:1; padding:9px 6px; border-radius:7px;
+  font-size:11px; font-weight:600; cursor:pointer;
+  transition:all 0.2s; border:1px solid; text-align:center;
+  font-family:'JetBrains Mono',monospace; text-transform:uppercase;
+  letter-spacing:0.5px;
+}
+.lic-mp3 { border-color:var(--border2); color:var(--text2); background:transparent; }
+.lic-mp3:hover { border-color:var(--cyan); color:var(--cyan); background:rgba(0,212,255,0.07); }
+.lic-wav { border-color:rgba(155,107,255,0.4); color:var(--purple); background:rgba(155,107,255,0.07); }
+.lic-wav:hover { background:rgba(155,107,255,0.15); }
+.lic-excl { border-color:rgba(255,184,0,0.4); color:var(--gold); background:rgba(255,184,0,0.07); }
+.lic-excl:hover { background:rgba(255,184,0,0.15); }
+
+/* Floating cards around hero visual */
+.float-card {
+  position:absolute; background:var(--dark2); border:1px solid var(--border2);
+  border-radius:12px; padding:10px 14px;
+  font-size:12px; font-weight:600;
+  display:flex; align-items:center; gap:8px;
+  box-shadow:0 8px 24px rgba(0,0,0,0.4);
+  animation:float 4s ease-in-out infinite;
+  white-space:nowrap;
+}
+.float-card:nth-child(2) { animation-delay:1s; }
+.float-card:nth-child(3) { animation-delay:2s; }
+
+@keyframes float {
+  0%,100%{transform:translateY(0px)}
+  50%{transform:translateY(-6px)}
+}
+
+/* ═══════════════════════════════════════
+   TRENDING PRODUCERS BAR
+═══════════════════════════════════════ */
+.producers-bar {
+  background:var(--dark2); border-top:1px solid var(--border); border-bottom:1px solid var(--border);
+  padding:16px 32px;
+  display:flex; align-items:center; gap:24px; overflow:hidden;
+}
+
+.pb-label {
+  font-family:'JetBrains Mono',monospace; font-size:10px;
+  color:var(--text3); letter-spacing:2px; text-transform:uppercase;
+  flex-shrink:0; padding-right:20px; border-right:1px solid var(--border);
+}
+
+.pb-track {
+  display:flex; gap:32px; align-items:center;
+  animation:scrollX 30s linear infinite;
+}
+
+@keyframes scrollX { 0%{transform:translateX(0)} 100%{transform:translateX(-50%)} }
+
+.pb-item {
+  display:flex; align-items:center; gap:8px; flex-shrink:0;
+}
+
+.pb-avatar {
+  width:28px; height:28px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  font-size:14px; border:1px solid var(--border2);
+}
+
+.pb-name { font-size:13px; font-weight:600; color:var(--text2); }
+.pb-count {
+  font-family:'JetBrains Mono',monospace; font-size:10px;
+  color:var(--text3); margin-left:4px;
+}
+
+/* ═══════════════════════════════════════
+   SECTION SCAFFOLD
+═══════════════════════════════════════ */
+.section { padding:80px 32px; }
+.section-inner { max-width:1280px; margin:0 auto; }
+
+.section-head {
+  display:flex; align-items:flex-end; justify-content:space-between;
+  margin-bottom:40px; gap:20px; flex-wrap:wrap;
+}
+
+.section-eyebrow {
+  font-family:'JetBrains Mono',monospace; font-size:11px;
+  font-weight:700; letter-spacing:4px; text-transform:uppercase;
+  color:var(--cyan); margin-bottom:8px;
+}
+
+.section-title {
+  font-family:'Bebas Neue',sans-serif; font-size:clamp(32px, 5vw, 52px);
+  letter-spacing:2px; color:var(--text); line-height:1;
+}
+
+.section-sub { font-size:15px; color:var(--text2); max-width:500px; margin-top:8px; }
+
+/* ═══════════════════════════════════════
+   FILTER BAR
+═══════════════════════════════════════ */
+.filter-bar {
+  display:flex; align-items:center; gap:10px;
+  flex-wrap:wrap; margin-bottom:32px;
+  padding:16px 20px;
+  background:var(--dark2); border:1px solid var(--border);
+  border-radius:14px;
+}
+
+.search-wrap {
+  position:relative; flex:1; min-width:200px; max-width:340px;
+}
+.search-icon {
+  position:absolute; left:13px; top:50%; transform:translateY(-50%);
+  color:var(--text3); font-size:13px;
+}
+.search-inp {
+  width:100%; background:var(--dark3); border:1px solid var(--border);
+  border-radius:8px; padding:10px 14px 10px 38px;
+  color:var(--text); font-family:'Outfit',sans-serif; font-size:13px;
+  outline:none; transition:border-color 0.2s;
+}
+.search-inp:focus { border-color:rgba(0,212,255,0.5); }
+.search-inp::placeholder { color:var(--text3); }
+
+.genre-chips { display:flex; gap:6px; flex-wrap:wrap; }
+
+.chip {
+  padding:7px 15px; border-radius:100px;
+  font-size:12px; font-weight:600; cursor:pointer;
+  transition:all 0.2s; border:1px solid var(--border);
+  color:var(--text3); background:transparent;
+  font-family:'Outfit',sans-serif; letter-spacing:0.2px;
+}
+.chip:hover { border-color:var(--border2); color:var(--text2); }
+.chip.active { background:var(--cyan); border-color:var(--cyan); color:#000; font-weight:700; }
+
+.filter-divider { width:1px; height:28px; background:var(--border); flex-shrink:0; }
+
+.sort-select {
+  background:var(--dark3); border:1px solid var(--border); border-radius:8px;
+  padding:9px 12px; color:var(--text2); font-size:12px;
+  font-family:'JetBrains Mono',monospace; cursor:pointer; outline:none;
+  transition:border-color 0.2s;
+}
+.sort-select:focus { border-color:rgba(0,212,255,0.5); }
+
+.bpm-wrap {
+  display:flex; align-items:center; gap:8px; flex-shrink:0;
+}
+.bpm-label { font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--text3); letter-spacing:1px; white-space:nowrap; }
+input[type=range] { accent-color:var(--cyan); cursor:pointer; width:90px; }
+
+/* ═══════════════════════════════════════
+   BEAT LIST
+═══════════════════════════════════════ */
+.beat-list { display:flex; flex-direction:column; gap:3px; }
+
+.beat-row {
+  display:grid;
+  grid-template-columns: 48px 52px 1fr auto;
+  gap:16px; align-items:center;
+  padding:14px 20px; border-radius:12px;
+  border:1px solid transparent;
+  transition:all 0.2s; cursor:pointer;
+  position:relative; overflow:hidden;
+  background:transparent;
+}
+
+.beat-row::before {
+  content:''; position:absolute; left:0; top:0; bottom:0; width:3px;
+  background:var(--cyan); border-radius:3px 0 0 3px;
+  transform:scaleY(0); transition:transform 0.2s;
+}
+
+.beat-row:hover { background:var(--dark2); border-color:var(--border); }
+.beat-row:hover::before { transform:scaleY(1); }
+.beat-row.is-playing { background:var(--dark2); border-color:rgba(0,212,255,0.3); }
+.beat-row.is-playing::before { transform:scaleY(1); }
+
+/* Row num */
+.row-num {
+  font-family:'JetBrains Mono',monospace; font-size:12px;
+  color:var(--text3); text-align:center; user-select:none;
+}
+.beat-row.is-playing .row-num { color:var(--cyan); }
+
+/* Play btn */
+.row-play {
+  width:40px; height:40px; border-radius:50%;
+  background:var(--dark3); border:1px solid var(--border2);
+  display:flex; align-items:center; justify-content:center;
+  cursor:pointer; transition:all 0.2s; flex-shrink:0;
+  color:var(--text2); font-size:14px;
+}
+.row-play:hover, .beat-row.is-playing .row-play {
+  background:var(--cyan); border-color:var(--cyan); color:#000;
+}
+
+/* Middle info column */
+.row-info { min-width:0; display:flex; flex-direction:column; gap:6px; }
+
+.row-title-line { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+
+.row-title {
+  font-size:15px; font-weight:700; color:var(--text);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  max-width:240px;
+}
+
+.row-producer {
+  font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text3);
+}
+.row-producer a { color:var(--cyan); text-decoration:none; }
+.row-producer a:hover { text-decoration:underline; }
+
+.row-tags { display:flex; gap:5px; flex-wrap:wrap; align-items:center; }
+
+.row-tag {
+  font-family:'JetBrains Mono',monospace; font-size:9px; font-weight:700;
+  padding:2px 7px; border-radius:3px; text-transform:uppercase; letter-spacing:0.5px;
+}
+
+.row-waveform {
+  height:48px; border-radius:6px; overflow:hidden;
+  background:var(--dark3); position:relative;
+}
+
+.wf-loading {
+  position:absolute; inset:0; display:flex; align-items:center;
+  justify-content:center; gap:3px;
+}
+.wf-bar {
+  width:2px; border-radius:1px; background:var(--text3);
+  animation:wfpulse 0.9s ease-in-out infinite;
+}
+.wf-bar:nth-child(1){height:8px; animation-delay:0s}
+.wf-bar:nth-child(2){height:16px; animation-delay:0.1s}
+.wf-bar:nth-child(3){height:12px; animation-delay:0.2s}
+.wf-bar:nth-child(4){height:20px; animation-delay:0.3s}
+.wf-bar:nth-child(5){height:14px; animation-delay:0.4s}
+
+@keyframes wfpulse{0%,100%{transform:scaleY(0.5);opacity:0.4}50%{transform:scaleY(1.1);opacity:1}}
+
+.row-stats {
+  display:flex; gap:14px; align-items:center;
+}
+.row-stat {
+  display:flex; align-items:center; gap:4px;
+  font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--text3);
+}
+.row-stat svg { opacity:0.5; }
+
+/* Right column — price + actions */
+.row-actions {
+  display:flex; flex-direction:column; align-items:flex-end; gap:10px;
+  flex-shrink:0; min-width:180px;
+}
+
+.row-price {
+  font-family:'Bebas Neue',sans-serif; font-size:26px;
+  color:var(--text); letter-spacing:1px; line-height:1;
+  display:flex; align-items:baseline; gap:3px;
+}
+.row-price .cents {
+  font-family:'JetBrains Mono',monospace; font-size:13px;
+  color:var(--text2); font-weight:400;
+}
+
+.row-license-btns { display:flex; gap:5px; }
+
+.rlic {
+  padding:5px 10px; border-radius:5px;
+  font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:700;
+  cursor:pointer; border:1px solid; transition:all 0.15s;
+  text-transform:uppercase; letter-spacing:0.3px;
+}
+.rlic-mp3 { border-color:var(--border2); color:var(--text2); background:transparent; }
+.rlic-mp3:hover { border-color:var(--cyan); color:var(--cyan); background:rgba(0,212,255,0.07); }
+.rlic-wav { border-color:rgba(155,107,255,0.3); color:var(--purple); background:rgba(155,107,255,0.07); }
+.rlic-wav:hover { background:rgba(155,107,255,0.18); }
+.rlic-excl { border-color:rgba(255,184,0,0.3); color:var(--gold); background:rgba(255,184,0,0.07); }
+.rlic-excl:hover { background:rgba(255,184,0,0.18); }
+
+.add-cart-btn {
+  width:100%; padding:9px; border-radius:7px;
+  background:var(--gradient); border:none;
+  font-family:'Outfit',sans-serif; font-size:12px; font-weight:700;
+  color:#000; cursor:pointer; transition:all 0.2s; letter-spacing:0.3px;
+}
+.add-cart-btn:hover { transform:translateY(-1px); box-shadow:0 4px 20px var(--glow-c); }
+
+/* Playing animation */
+.playing-anim {
+  display:flex; gap:2px; align-items:flex-end; height:14px;
+}
+.pa-bar {
+  width:3px; border-radius:1px; background:var(--cyan);
+  animation:playAnim 0.7s ease-in-out infinite;
+}
+.pa-bar:nth-child(1){height:5px;animation-delay:0s}
+.pa-bar:nth-child(2){height:12px;animation-delay:0.12s}
+.pa-bar:nth-child(3){height:8px;animation-delay:0.24s}
+
+@keyframes playAnim{0%,100%{transform:scaleY(0.4)}50%{transform:scaleY(1.1)}}
+
+/* ═══════════════════════════════════════
+   GRID CARDS (Featured/New)
+═══════════════════════════════════════ */
+.beat-grid-3 { display:grid; grid-template-columns:repeat(3,1fr); gap:20px; }
+.beat-grid-4 { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; }
+
+.beat-card {
+  background:var(--dark2); border:1px solid var(--border);
+  border-radius:16px; padding:20px;
+  transition:all 0.25s; cursor:pointer; position:relative; overflow:hidden;
+}
+.beat-card::before {
+  content:''; position:absolute; top:-100px; left:-100px;
+  width:250px; height:250px; border-radius:50%; pointer-events:none;
+  transition:opacity 0.3s;
+}
+.beat-card:hover { border-color:var(--border2); transform:translateY(-3px); box-shadow:0 20px 40px rgba(0,0,0,0.4); }
+
+.bc-artwork {
+  width:100%; aspect-ratio:1/1; border-radius:10px;
+  background:var(--dark3); margin-bottom:16px;
+  display:flex; align-items:center; justify-content:center;
+  font-size:48px; position:relative; overflow:hidden;
+  border:1px solid var(--border);
+}
+
+.bc-artwork-overlay {
+  position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+  background:rgba(0,0,0,0.5); opacity:0; transition:opacity 0.2s;
+}
+.beat-card:hover .bc-artwork-overlay { opacity:1; }
+
+.bc-play-big {
+  width:52px; height:52px; border-radius:50%;
+  background:var(--gradient); border:none; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  font-size:20px; color:#000; transition:transform 0.2s;
+}
+.bc-play-big:hover { transform:scale(1.1); }
+
+.bc-info { margin-bottom:14px; }
+.bc-title { font-size:14px; font-weight:700; color:var(--text); margin-bottom:3px; }
+.bc-producer { font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text3); }
+
+.bc-tags { display:flex; gap:5px; flex-wrap:wrap; margin-bottom:14px; }
+
+.bc-footer { display:flex; align-items:center; justify-content:space-between; }
+.bc-price {
+  font-family:'Bebas Neue',sans-serif; font-size:22px;
+  color:var(--text); letter-spacing:1px;
+}
+
+.bc-add {
+  width:36px; height:36px; border-radius:50%;
+  background:var(--dark4); border:1px solid var(--border2);
+  display:flex; align-items:center; justify-content:center;
+  cursor:pointer; transition:all 0.2s; font-size:16px; color:var(--text2);
+}
+.bc-add:hover { background:var(--cyan); border-color:var(--cyan); color:#000; }
+
+/* ═══════════════════════════════════════
+   PROMO BANNER
+═══════════════════════════════════════ */
+.promo-banner {
+  margin:0 32px; border-radius:20px; overflow:hidden;
+  background:linear-gradient(135deg, #0D1A2E 0%, #111827 40%, #0D1A1A 100%);
+  border:1px solid var(--border2);
+  padding:48px 56px;
+  display:flex; align-items:center; justify-content:space-between; gap:40px;
+  position:relative;
+}
+
+.promo-banner::before {
+  content:''; position:absolute; top:-80px; left:-80px;
+  width:400px; height:400px; border-radius:50%;
+  background:radial-gradient(circle, rgba(0,212,255,0.08), transparent 70%);
+  pointer-events:none;
+}
+.promo-banner::after {
+  content:''; position:absolute; bottom:-60px; right:200px;
+  width:300px; height:300px; border-radius:50%;
+  background:radial-gradient(circle, rgba(155,107,255,0.07), transparent 70%);
+  pointer-events:none;
+}
+
+.pb-left { position:relative; z-index:1; }
+.pb-eyebrow {
+  font-family:'JetBrains Mono',monospace; font-size:11px;
+  color:var(--gold); letter-spacing:3px; text-transform:uppercase; margin-bottom:12px;
+  display:flex; align-items:center; gap:8px;
+}
+.pb-title {
+  font-family:'Bebas Neue',sans-serif; font-size:clamp(28px,4vw,52px);
+  letter-spacing:2px; color:var(--text); line-height:1; margin-bottom:12px;
+}
+.pb-sub { font-size:15px; color:var(--text2); max-width:400px; }
+
+.pb-right { display:flex; flex-direction:column; gap:10px; align-items:flex-end; position:relative; z-index:1; flex-shrink:0; }
+
+/* ═══════════════════════════════════════
+   PRODUCER SPOTLIGHT
+═══════════════════════════════════════ */
+.producer-cards { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; }
+
+.producer-card {
+  background:var(--dark2); border:1px solid var(--border);
+  border-radius:16px; padding:24px 20px; text-align:center;
+  transition:all 0.25s; cursor:pointer;
+}
+.producer-card:hover { border-color:var(--border2); transform:translateY(-3px); box-shadow:0 16px 40px rgba(0,0,0,0.3); }
+
+.prod-avatar {
+  width:72px; height:72px; border-radius:50%; margin:0 auto 14px;
+  display:flex; align-items:center; justify-content:center; font-size:32px;
+  position:relative; overflow:hidden; border:2px solid var(--border2);
+}
+
+.prod-avatar-ring {
+  position:absolute; inset:-4px; border-radius:50%;
+  background:conic-gradient(var(--cyan), var(--purple), var(--orange), var(--cyan));
+  z-index:-1; animation:spinRing 4s linear infinite;
+}
+@keyframes spinRing { to{transform:rotate(360deg)} }
+
+.prod-name { font-size:15px; font-weight:700; color:var(--text); margin-bottom:4px; }
+.prod-tag { font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--cyan); margin-bottom:12px; }
+.prod-stats { display:flex; justify-content:center; gap:20px; }
+.ps-item { display:flex; flex-direction:column; align-items:center; gap:2px; }
+.ps-num { font-size:16px; font-weight:700; color:var(--text); }
+.ps-label { font-family:'JetBrains Mono',monospace; font-size:9px; color:var(--text3); letter-spacing:1px; text-transform:uppercase; }
+
+/* ═══════════════════════════════════════
+   STICKY PLAYER
+═══════════════════════════════════════ */
+.sticky-player {
+  position:fixed; bottom:0; left:0; right:0; z-index:190;
+  height:76px;
+  background:rgba(8,11,16,0.95); backdrop-filter:blur(24px);
+  border-top:1px solid var(--border2);
+  display:flex; align-items:center; gap:24px; padding:0 28px;
+  transform:translateY(110%);
+  transition:transform 0.4s cubic-bezier(0.16,1,0.3,1);
+}
+.sticky-player.show { transform:translateY(0); }
+
+/* Player glow line */
+.sticky-player::before {
+  content:''; position:absolute; top:0; left:0; right:0; height:1px;
+  background:var(--gradient); opacity:0.5;
+}
+
+.sp-art {
+  width:48px; height:48px; border-radius:10px;
+  background:var(--dark3); border:1px solid var(--border2);
+  display:flex; align-items:center; justify-content:center;
+  font-size:22px; flex-shrink:0; position:relative; overflow:hidden;
+}
+
+.sp-info { flex-shrink:0; min-width:180px; }
+.sp-title { font-size:13px; font-weight:700; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:200px; }
+.sp-artist { font-size:11px; color:var(--text3); font-family:'JetBrains Mono',monospace; margin-top:2px; }
+.sp-tags { display:flex; gap:4px; margin-top:4px; }
+
+.sp-controls { display:flex; align-items:center; gap:14px; flex-shrink:0; }
+
+.sp-btn {
+  background:none; border:none; color:var(--text3);
+  cursor:pointer; transition:color 0.2s;
+  display:flex; align-items:center; padding:4px;
+  font-size:16px;
+}
+.sp-btn:hover { color:var(--text); }
+
+.sp-play {
+  width:42px; height:42px; border-radius:50%;
+  background:var(--gradient); border:none; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  font-size:16px; color:#000; transition:all 0.2s;
+  box-shadow:0 0 20px var(--glow-c); flex-shrink:0;
+}
+.sp-play:hover { transform:scale(1.06); }
+
+.sp-progress {
+  flex:1; display:flex; align-items:center; gap:10px;
+}
+.sp-time { font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text3); flex-shrink:0; width:34px; }
+.sp-time.end { text-align:right; }
+
+.sp-track {
+  flex:1; height:4px; border-radius:2px; background:var(--dark4); cursor:pointer;
+  position:relative; overflow:visible;
+}
+.sp-fill {
+  height:100%; border-radius:2px; pointer-events:none;
+  background:var(--gradient); width:0%; transition:width 0.1s linear;
+}
+
+.sp-vol { display:flex; align-items:center; gap:8px; flex-shrink:0; }
+.sp-vol-icon { font-size:14px; color:var(--text3); }
+.sp-vol-slider { width:80px; accent-color:var(--cyan); cursor:pointer; }
+
+/* ═══════════════════════════════════════
+   CART MODAL
+═══════════════════════════════════════ */
+.modal-overlay {
+  position:fixed; inset:0; z-index:300;
+  background:rgba(0,0,0,0.7); backdrop-filter:blur(8px);
+  display:flex; align-items:flex-end; justify-content:flex-end;
+  opacity:0; pointer-events:none; transition:opacity 0.3s;
+}
+.modal-overlay.open { opacity:1; pointer-events:all; }
+
+.cart-panel {
+  width:400px; height:100vh;
+  background:var(--dark); border-left:1px solid var(--border2);
+  display:flex; flex-direction:column;
+  transform:translateX(100%); transition:transform 0.35s cubic-bezier(0.16,1,0.3,1);
+  overflow:hidden;
+}
+.modal-overlay.open .cart-panel { transform:translateX(0); }
+
+.cart-header {
+  padding:24px 24px 20px;
+  border-bottom:1px solid var(--border);
+  display:flex; align-items:center; justify-content:space-between;
+  flex-shrink:0;
+}
+.cart-title {
+  font-family:'Bebas Neue',sans-serif; font-size:24px; letter-spacing:2px;
+}
+.cart-close {
+  width:36px; height:36px; border-radius:8px;
+  background:var(--dark3); border:1px solid var(--border);
+  color:var(--text2); cursor:pointer; font-size:18px;
+  display:flex; align-items:center; justify-content:center;
+  transition:all 0.2s;
+}
+.cart-close:hover { background:var(--red); border-color:var(--red); color:#fff; }
+
+.cart-items { flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:8px; }
+
+.cart-empty {
+  flex:1; display:flex; flex-direction:column;
+  align-items:center; justify-content:center; gap:12px;
+  color:var(--text3); font-size:14px; padding:40px;
+}
+.cart-empty-icon { font-size:48px; opacity:0.4; }
+
+.cart-item {
+  display:flex; align-items:center; gap:12px;
+  background:var(--dark2); border:1px solid var(--border);
+  border-radius:10px; padding:12px;
+}
+.ci-emoji { font-size:24px; flex-shrink:0; }
+.ci-info { flex:1; min-width:0; }
+.ci-title { font-size:13px; font-weight:700; color:var(--text); }
+.ci-meta { font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--text3); margin-top:2px; }
+.ci-price { font-family:'Bebas Neue',sans-serif; font-size:18px; color:var(--text); flex-shrink:0; }
+.ci-remove {
+  width:28px; height:28px; border-radius:6px; flex-shrink:0;
+  background:transparent; border:1px solid var(--border); color:var(--text3);
+  cursor:pointer; font-size:14px; display:flex; align-items:center; justify-content:center;
+  transition:all 0.15s;
+}
+.ci-remove:hover { background:var(--red); border-color:var(--red); color:#fff; }
+
+.cart-footer {
+  padding:20px 24px; border-top:1px solid var(--border); flex-shrink:0;
+}
+.cart-subtotal {
+  display:flex; justify-content:space-between; align-items:baseline;
+  margin-bottom:16px;
+}
+.cst-label { font-size:13px; color:var(--text2); }
+.cst-val {
+  font-family:'Bebas Neue',sans-serif; font-size:28px;
+  background:var(--gradient); -webkit-background-clip:text;
+  -webkit-text-fill-color:transparent; background-clip:text;
+}
+
+.checkout-btn {
+  width:100%; padding:14px; border-radius:10px;
+  background:var(--gradient); border:none; cursor:pointer;
+  font-family:'Outfit',sans-serif; font-size:15px; font-weight:700;
+  color:#000; letter-spacing:0.3px; transition:all 0.2s;
+  box-shadow:0 4px 24px var(--glow-c);
+}
+.checkout-btn:hover { transform:translateY(-1px); box-shadow:0 8px 32px var(--glow-c); }
+
+/* ═══════════════════════════════════════
+   TOAST
+═══════════════════════════════════════ */
+.toast-container { position:fixed; bottom:96px; right:24px; z-index:500; display:flex; flex-direction:column; gap:8px; }
+.toast {
+  background:var(--dark2); border:1px solid var(--border2);
+  border-radius:10px; padding:12px 16px;
+  display:flex; align-items:center; gap:10px;
+  font-size:13px; color:var(--text);
+  box-shadow:0 8px 24px rgba(0,0,0,0.4);
+  transform:translateX(120%); transition:transform 0.35s cubic-bezier(0.16,1,0.3,1);
+  max-width:300px;
+}
+.toast.in { transform:translateX(0); }
+.toast-icon { font-size:16px; flex-shrink:0; }
+.toast-left { border-left:3px solid var(--cyan); }
+.toast-orange { border-left:3px solid var(--orange); }
+
+/* ═══════════════════════════════════════
+   FOOTER
+═══════════════════════════════════════ */
+.footer {
+  background:var(--dark); border-top:1px solid var(--border);
+  padding:60px 32px 40px; margin-top:80px;
+}
+
+.footer-inner {
+  max-width:1280px; margin:0 auto;
+  display:grid; grid-template-columns:2fr 1fr 1fr 1fr; gap:48px;
+  margin-bottom:48px;
+}
+
+.footer-brand { }
+.footer-logo-wrap { display:flex; align-items:center; gap:10px; margin-bottom:16px; }
+.footer-logo-mark {
+  width:36px; height:36px; border-radius:8px;
+  background:var(--gradient); display:flex; align-items:center; justify-content:center;
+  font-family:'Bebas Neue',sans-serif; font-size:18px; color:#000;
+}
+.footer-logotype {
+  font-family:'Bebas Neue',sans-serif; font-size:20px;
+  letter-spacing:3px; background:var(--gradient);
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+}
+.footer-desc { font-size:13px; color:var(--text3); line-height:1.7; max-width:280px; margin-bottom:20px; }
+.footer-socials { display:flex; gap:8px; }
+.social-btn {
+  width:36px; height:36px; border-radius:8px;
+  background:var(--dark3); border:1px solid var(--border);
+  display:flex; align-items:center; justify-content:center;
+  font-size:16px; cursor:pointer; transition:all 0.2s; text-decoration:none;
+}
+.social-btn:hover { border-color:var(--border2); background:var(--dark4); }
+
+.footer-col-title {
+  font-family:'Bebas Neue',sans-serif; font-size:16px; letter-spacing:2px;
+  color:var(--text); margin-bottom:16px;
+}
+.footer-links { list-style:none; display:flex; flex-direction:column; gap:8px; }
+.footer-links a { font-size:13px; color:var(--text3); text-decoration:none; transition:color 0.2s; }
+.footer-links a:hover { color:var(--text); }
+
+.footer-bottom {
+  max-width:1280px; margin:0 auto;
+  padding-top:24px; border-top:1px solid var(--border);
+  display:flex; align-items:center; justify-content:space-between;
+  flex-wrap:wrap; gap:12px;
+}
+.footer-copy { font-size:12px; color:var(--text3); font-family:'JetBrains Mono',monospace; }
+.footer-meta { display:flex; gap:20px; }
+.footer-meta a { font-size:12px; color:var(--text3); text-decoration:none; font-family:'JetBrains Mono',monospace; }
+.footer-meta a:hover { color:var(--text); }
+
+/* ═══════════════════════════════════════
+   UTILITIES
+═══════════════════════════════════════ */
+.page-container { max-width:1280px; margin:0 auto; }
+.mt-auto { margin-top:auto; }
+.hidden { display:none!important; }
+
+/* Load-in animation */
+@keyframes fadeUp {
+  from { opacity:0; transform:translateY(20px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+.fade-up { animation:fadeUp 0.6s ease forwards; }
+.fade-up-2 { animation:fadeUp 0.6s 0.1s ease both; }
+.fade-up-3 { animation:fadeUp 0.6s 0.2s ease both; }
+.fade-up-4 { animation:fadeUp 0.6s 0.3s ease both; }
+
+/* Waveform colors per genre */
+.wc-trap    { --wc: #9B6BFF; }
+.wc-drill   { --wc: #FF3B5C; }
+.wc-rnb     { --wc: #FFB800; }
+.wc-lofi    { --wc: #00D4FF; }
+.wc-afro    { --wc: #FF6B2B; }
+.wc-pop     { --wc: #00E5A0; }
+.wc-hiphop  { --wc: #9B6BFF; }
+.wc-soul    { --wc: #FFB800; }
+
+/* ═══════════════════════════════════════
+   AUTH AREA TOGGLE
+═══════════════════════════════════════ */
+#navUserArea { display: none; align-items: center; gap: 8px; }
+#navUserArea.show { display: flex; }
+#navAuthBtn { transition: all 0.2s; }
+
+/* ═══════════════════════════════════════
+   API STATUS INDICATOR
+═══════════════════════════════════════ */
+#apiStatus {
+  display: flex; align-items: center; gap: 6px;
+  font-family: 'JetBrains Mono', monospace; font-size: 10px;
+  padding: 5px 10px; border-radius: 6px;
+  border: 1px solid var(--border); cursor: pointer; transition: all 0.2s;
+}
+#apiStatus.ok      { color: var(--green);  border-color: rgba(0,229,160,0.3);  }
+#apiStatus.err     { color: var(--red);    border-color: rgba(255,59,92,0.3);  }
+#apiStatus.checking{ color: var(--text3); }
+#apiDot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+#apiStatus.ok #apiDot { animation: blink 2s ease-in-out infinite; }
+
+/* ═══════════════════════════════════════
+   UPLOAD MODAL STEPS
+═══════════════════════════════════════ */
+.upload-step {
+  flex: 1; padding: 8px 6px; text-align: center;
+  font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--text3);
+  border-bottom: 2px solid var(--border); transition: all 0.3s;
+  letter-spacing: 1px; text-transform: uppercase; cursor: default;
+}
+.upload-step.active { color: var(--cyan);  border-bottom-color: var(--cyan);  }
+.upload-step.done   { color: var(--green); border-bottom-color: var(--green); }
+
+/* ═══════════════════════════════════════
+   PROCESSING PIPELINE STEPS
+═══════════════════════════════════════ */
+.pipeline-step {
+  font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text2);
+  padding: 5px 0; letter-spacing: 0.3px; transition: all 0.4s;
+}
+.pipeline-step.active { color: var(--cyan);  }
+.pipeline-step.done   { color: var(--green); }
+
+/* ═══════════════════════════════════════
+   LICENSE OPTION SELECTOR
+═══════════════════════════════════════ */
+.license-option {
+  border: 1px solid var(--border2); border-radius: 10px;
+  padding: 14px 16px; cursor: pointer; transition: all 0.2s; position: relative;
+}
+.license-option:hover   { background: var(--dark3); }
+.license-option.selected { border-color: var(--cyan); background: rgba(0,212,255,0.07); }
+.license-option.selected::after {
+  content: '✓'; position: absolute; top: 10px; right: 12px;
+  color: var(--cyan); font-weight: 700; font-size: 14px;
+}
+
+/* ═══════════════════════════════════════
+   DROP ZONE
+═══════════════════════════════════════ */
+#dropZone:hover    { border-color: var(--cyan); background: rgba(0,212,255,0.05); }
+#dropZone.drag-over{ border-color: var(--cyan); background: rgba(0,212,255,0.08); transform: scale(1.01); }
+
+/* ═══════════════════════════════════════
+   FORM INPUT FOCUS
+═══════════════════════════════════════ */
+input:focus, select:focus {
+  border-color: rgba(0,212,255,0.5) !important;
+  box-shadow: 0 0 0 3px rgba(0,212,255,0.1);
+}
+
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════ NAV -->
+<nav>
+  <a href="#" class="nav-logo">
+    <div class="nav-logo-mark">W</div>
+    <span class="nav-logo-text">WAVVAULT</span>
+  </a>
+
+  <ul class="nav-links">
+    <li><a href="#" class="active">Explore</a></li>
+    <li><a href="#">Trending</a></li>
+    <li><a href="#">Producers</a></li>
+    <li><a href="#">Packs</a></li>
+    <li><a href="#">Free Beats</a></li>
+    <li><a href="#">Licensing</a></li>
+  </ul>
+
+  <div class="nav-actions">
+    <!-- API health indicator — click to recheck -->
+    <div id="apiStatus" class="checking" onclick="checkHealth()" title="Click to ping backend">
+      <div id="apiDot"></div>
+      <span id="apiStatusLabel">API</span>
+    </div>
+
+    <!-- Logged-out state -->
+    <button class="btn btn-ghost" id="navOnboardBtn" style="font-size:12px;padding:7px 14px;">Sell Beats</button>
+    <button class="btn btn-ghost" id="navAuthBtn">Sign In</button>
+
+    <!-- Logged-in state (hidden until auth) -->
+    <div id="navUserArea">
+      <button class="btn btn-ghost" id="navDashBtn" style="font-size:12px;padding:7px 14px;">📊 Dashboard</button>
+      <div id="navUserId" style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--cyan);padding:6px 10px;background:rgba(0,212,255,0.08);border:1px solid rgba(0,212,255,0.2);border-radius:6px;"></div>
+      <button class="btn btn-ghost" id="navSignOutBtn" style="font-size:11px;padding:6px 12px;color:var(--text3);" title="Sign out">↩</button>
+    </div>
+
+    <button class="btn btn-ghost" id="cartToggle" style="gap:8px;">
+      <span>🛒</span> Cart
+      <div class="cart-dot" id="cartDot">0</div>
+    </button>
+    <button class="btn btn-primary" id="navUploadBtn">Upload Beat</button>
+  </div>
+</nav>
+
+<!-- ═══════════════════════════════════════════════ HERO -->
+<section class="hero">
+  <div class="hero-bg"></div>
+  <div class="hero-grid"></div>
+
+  <div class="hero-content fade-up">
+    <div class="hero-badge">
+      <div class="hero-badge-dot"></div>
+      84,200+ Beats Available
+    </div>
+
+    <h1>
+      BUY BEATS.<br>
+      <span class="line2">BUILD HITS.</span>
+    </h1>
+
+    <p class="hero-sub">
+      License studio-quality instrumentals from the world's best producers.
+      Instant delivery, high-quality WAV files, and full legal licensing — every track.
+    </p>
+
+    <div class="hero-ctas">
+      <button class="btn btn-primary" style="padding:13px 28px;font-size:15px;"
+        onclick="document.getElementById('explore').scrollIntoView({behavior:'smooth'})">
+        Browse Beats
+      </button>
+      <button class="btn btn-ghost" style="padding:13px 28px;font-size:15px;" id="sellBtn">
+        Sell Your Beats
+      </button>
+    </div>
+
+    <div class="hero-stats">
+      <div class="hstat"><div class="hstat-num">84<span>K</span></div><div class="hstat-label">Beats</div></div>
+      <div class="hstat"><div class="hstat-num">12<span>K</span></div><div class="hstat-label">Producers</div></div>
+      <div class="hstat"><div class="hstat-num">1.2<span>M</span></div><div class="hstat-label">Licenses Sold</div></div>
+      <div class="hstat"><div class="hstat-num">$8<span>M</span></div><div class="hstat-label">Paid Out</div></div>
+    </div>
+  </div>
+
+  <!-- Featured beat card -->
+  <div class="hero-visual fade-up-3" id="heroVisual">
+    <div class="featured-beat-card">
+      <div class="fbc-header">
+        <div class="fbc-artwork">🖤</div>
+        <div class="fbc-meta">
+          <div class="fbc-title">Dark Prophecy</div>
+          <div class="fbc-artist">by MetroKing</div>
+          <div class="fbc-badges">
+            <span class="fbc-badge badge-bpm">140 BPM</span>
+            <span class="fbc-badge badge-key">Am</span>
+            <span class="fbc-badge badge-hot">🔥 Hot</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="fbc-waveform-wrap" id="heroWaveform">
+        <div class="wf-loading" id="heroLoading">
+          <div class="wf-bar"></div><div class="wf-bar"></div>
+          <div class="wf-bar"></div><div class="wf-bar"></div>
+          <div class="wf-bar"></div>
+        </div>
+      </div>
+
+      <div class="fbc-controls">
+        <button class="fbc-play" id="heroPlayBtn" onclick="toggleHeroPlay()">▶</button>
+        <div class="fbc-price-area">
+          <div class="fbc-price">$29<span style="font-family:'JetBrains Mono';font-size:14px;color:var(--text2)">.99</span></div>
+          <div class="fbc-price-sub">Starting price</div>
+        </div>
+      </div>
+
+      <div class="fbc-license-row">
+        <button class="fbc-lic-btn lic-mp3"  onclick="showToast('MP3 Basic License — $29.99','🎵')">MP3</button>
+        <button class="fbc-lic-btn lic-wav"  onclick="showToast('WAV + Trackout — $59.99','🎧')">WAV</button>
+        <button class="fbc-lic-btn lic-excl" onclick="showToast('Exclusive Rights — $499','⭐')">EXCL</button>
+      </div>
+    </div>
+    <!-- Floating stats cards -->
+    <div class="float-card" style="top:-24px;right:-20px;color:var(--green);">
+      <span>📈</span> <span style="color:var(--text);">+2.4K plays today</span>
+    </div>
+    <div class="float-card" style="bottom:24px;right:-28px;">
+      <span>🔥</span> <span style="color:var(--orange);">147 sold this week</span>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════ SCROLLING PRODUCERS -->
+<div class="producers-bar">
+  <div class="pb-label">Top Producers</div>
+  <div style="overflow:hidden;flex:1;">
+    <div class="pb-track" id="pbTrack"></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════ PROMO BANNER -->
+<div class="promo-banner" style="margin-top:60px;">
+  <div class="pb-left">
+    <div class="pb-eyebrow">⚡ Limited Drop</div>
+    <div class="pb-title">METRO BOOMIN<br>TYPE PACK · VOL 7</div>
+    <div class="pb-sub">12 dark trap instrumentals with full stems. Exclusive early-access pricing for 48 hours only.</div>
+  </div>
+  <div class="pb-right">
+    <div style="font-family:'Bebas Neue';font-size:48px;background:var(--gradient);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1;">$89.99</div>
+    <div style="font-family:'JetBrains Mono';font-size:11px;color:var(--text3);margin-bottom:8px;text-decoration:line-through;">$149.99</div>
+    <button class="btn btn-primary" style="font-size:14px;padding:12px 28px;">Get The Pack</button>
+    <div id="promoTimer" style="font-family:'JetBrains Mono';font-size:10px;color:var(--text3);letter-spacing:1px;">⏳ 23:47:12 remaining</div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════ EXPLORE / BEAT LIST -->
+<section class="section" id="explore">
+  <div class="section-inner">
+    <div class="section-head">
+      <div>
+        <div class="section-eyebrow">// Browse</div>
+        <div class="section-title">TRENDING BEATS</div>
+        <div class="section-sub" id="beatCountLabel">Loading beats...</div>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center;">
+        <span style="font-family:'JetBrains Mono';font-size:11px;color:var(--text3);">VIEW:</span>
+        <button class="btn btn-ghost" style="padding:8px 14px;font-size:12px;" id="listViewBtn">☰ List</button>
+        <button class="btn btn-ghost" style="padding:8px 14px;font-size:12px;" id="gridViewBtn">⊞ Grid</button>
+      </div>
+    </div>
+
+    <!-- FILTER BAR -->
+    <div class="filter-bar">
+      <div class="search-wrap">
+        <span class="search-icon">🔍</span>
+        <input class="search-inp" type="text" placeholder="Search beats, producers, moods..." id="searchInp" autocomplete="off">
+      </div>
+      <div class="filter-divider"></div>
+      <div class="genre-chips">
+        <button class="chip active" data-genre="all">All</button>
+        <button class="chip" data-genre="trap">Trap</button>
+        <button class="chip" data-genre="drill">Drill</button>
+        <button class="chip" data-genre="rnb">R&amp;B</button>
+        <button class="chip" data-genre="lofi">Lo-Fi</button>
+        <button class="chip" data-genre="afro">Afrobeats</button>
+        <button class="chip" data-genre="pop">Pop</button>
+        <button class="chip" data-genre="hiphop">Hip-Hop</button>
+      </div>
+      <div class="filter-divider"></div>
+      <div class="bpm-wrap">
+        <span class="bpm-label">BPM ≤ <span id="bpmDisp">Any</span></span>
+        <input type="range" min="60" max="200" value="200" id="bpmRange">
+      </div>
+      <div class="filter-divider"></div>
+      <select class="sort-select" id="sortSel">
+        <option value="trending">🔥 Trending</option>
+        <option value="newest">✨ Newest</option>
+        <option value="price_asc">$ Low → High</option>
+        <option value="price_desc">$ High → Low</option>
+        <option value="plays">▶ Most Played</option>
+      </select>
+    </div>
+
+    <div class="beat-list" id="beatList"></div>
+    <div class="beat-grid-3 hidden" id="beatGrid" style="margin-top:0;"></div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════ NEW RELEASES -->
+<section class="section" style="padding-top:0;">
+  <div class="section-inner">
+    <div class="section-head">
+      <div>
+        <div class="section-eyebrow">// Fresh Drops</div>
+        <div class="section-title">NEW RELEASES</div>
+      </div>
+      <a href="#" class="btn btn-outline-cyan" style="font-size:13px;">View All</a>
+    </div>
+    <div class="beat-grid-4" id="newReleasesGrid"></div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════ PRODUCER SPOTLIGHT -->
+<section class="section" style="background:var(--dark2);border-top:1px solid var(--border);border-bottom:1px solid var(--border);">
+  <div class="section-inner">
+    <div class="section-head">
+      <div>
+        <div class="section-eyebrow">// Top Sellers</div>
+        <div class="section-title">PRODUCER SPOTLIGHT</div>
+      </div>
+      <a href="#" class="btn btn-outline-cyan" style="font-size:13px;">All Producers</a>
+    </div>
+    <div class="producer-cards" id="producerGrid"></div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════ FOOTER -->
+<footer class="footer">
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-logo-wrap">
+        <div class="footer-logo-mark">W</div>
+        <span class="footer-logotype">WAVVAULT</span>
+      </div>
+      <p class="footer-desc">The premier marketplace for buying and selling beats. License studio-quality instrumentals from top producers worldwide.</p>
+      <div class="footer-socials">
+        <a class="social-btn">𝕏</a>
+        <a class="social-btn">in</a>
+        <a class="social-btn">📸</a>
+        <a class="social-btn">▶</a>
+      </div>
+    </div>
+    <div>
+      <div class="footer-col-title">Explore</div>
+      <ul class="footer-links">
+        <li><a href="#">Trending Beats</a></li>
+        <li><a href="#">New Releases</a></li>
+        <li><a href="#">Free Beats</a></li>
+        <li><a href="#">Beat Packs</a></li>
+        <li><a href="#">Top Charts</a></li>
+      </ul>
+    </div>
+    <div>
+      <div class="footer-col-title">Sell</div>
+      <ul class="footer-links">
+        <li><a href="#">Upload Beats</a></li>
+        <li><a href="#">Producer Dashboard</a></li>
+        <li><a href="#">Pricing &amp; Plans</a></li>
+        <li><a href="#">Payouts</a></li>
+        <li><a href="#">Become Verified</a></li>
+      </ul>
+    </div>
+    <div>
+      <div class="footer-col-title">Support</div>
+      <ul class="footer-links">
+        <li><a href="#">Licensing Guide</a></li>
+        <li><a href="#">Help Center</a></li>
+        <li><a href="#">Contact Us</a></li>
+        <li><a href="#">Legal</a></li>
+        <li><a href="#">API Docs</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <span class="footer-copy">© 2026 WAVVAULT — Beat Marketplace · v2.5.0</span>
+    <div class="footer-meta">
+      <a href="#">Privacy Policy</a>
+      <a href="#">Terms of Service</a>
+      <a href="#">Cookie Policy</a>
+      <a href="#">DMCA</a>
+    </div>
+  </div>
+</footer>
+
+<!-- ═══════════════════════════════════════════════ STICKY PLAYER -->
+<div class="sticky-player" id="stickyPlayer">
+  <div class="sp-art" id="spArt">🎵</div>
+  <div class="sp-info">
+    <div class="sp-title" id="spTitle">—</div>
+    <div class="sp-artist" id="spArtist">No track selected</div>
+    <div class="sp-tags" id="spTags"></div>
+  </div>
+  <div class="sp-controls">
+    <button class="sp-btn" id="prevBtn" title="Previous">⏮</button>
+    <button class="sp-play" id="mainPlay">▶</button>
+    <button class="sp-btn" id="nextBtn" title="Next">⏭</button>
+  </div>
+  <div class="sp-progress">
+    <span class="sp-time" id="spCur">0:00</span>
+    <div class="sp-track" id="spTrack">
+      <div class="sp-fill" id="spFill"></div>
+    </div>
+    <span class="sp-time end" id="spDur">0:00</span>
+  </div>
+  <div class="sp-vol">
+    <span class="sp-vol-icon">🔊</span>
+    <input type="range" class="sp-vol-slider" min="0" max="1" step="0.01" value="0.8" id="volSlider">
+  </div>
+  <button class="btn btn-orange" style="font-size:12px;padding:8px 16px;flex-shrink:0;" id="spAddCart">+ Cart</button>
+</div>
+
+<!-- ═══════════════════════════════════════════════ CART PANEL -->
+<div class="modal-overlay" id="cartModal">
+  <div class="cart-panel">
+    <div class="cart-header">
+      <div>
+        <div class="cart-title">YOUR CART</div>
+        <div style="font-family:'JetBrains Mono';font-size:11px;color:var(--text3);" id="cartItemCount">0 items</div>
+      </div>
+      <button class="cart-close" onclick="closeCart()">✕</button>
+    </div>
+    <div class="cart-items" id="cartItemsEl">
+      <div class="cart-empty">
+        <div class="cart-empty-icon">🎵</div>
+        <strong style="color:var(--text2);">Your cart is empty</strong>
+        <span>Add beats to checkout</span>
+      </div>
+    </div>
+    <div class="cart-footer" id="cartFooter" style="display:none;">
+      <div class="cart-subtotal">
+        <span class="cst-label">Total</span>
+        <span class="cst-val" id="cartTotal">$0.00</span>
+      </div>
+      <button class="checkout-btn" id="cartCheckoutBtn">Checkout with Stripe →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════ AUTH MODAL -->
+<div class="modal-overlay" id="authModal" style="align-items:center;justify-content:center;">
+  <div style="background:var(--dark);border:1px solid var(--border2);border-radius:20px;width:420px;padding:40px;position:relative;">
+    <button onclick="closeModal('authModal')" style="position:absolute;top:16px;right:16px;background:var(--dark3);border:1px solid var(--border);border-radius:8px;width:32px;height:32px;cursor:pointer;color:var(--text2);font-size:16px;">✕</button>
+    <div style="text-align:center;margin-bottom:28px;">
+      <div style="width:48px;height:48px;background:var(--gradient);border-radius:12px;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue';font-size:22px;color:#000;margin:0 auto 12px;">W</div>
+      <div style="font-family:'Bebas Neue';font-size:26px;letter-spacing:2px;">SIGN IN</div>
+      <div style="font-size:13px;color:var(--text3);margin-top:4px;">Access your WAVVAULT account</div>
+    </div>
+    <!-- Dev bypass panel — only visible when dev-mode meta is true -->
+    <div id="authDevBypass" style="background:rgba(0,212,255,0.08);border:1px solid rgba(0,212,255,0.2);border-radius:10px;padding:14px;margin-bottom:20px;">
+      <div style="font-family:'JetBrains Mono';font-size:10px;color:var(--cyan);letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;">⚡ Dev Mode Active</div>
+      <input id="devUserId" type="text" value="dev-user-001" placeholder="x-dev-user-id"
+        style="width:100%;background:var(--dark2);border:1px solid var(--border2);border-radius:8px;padding:10px 12px;color:var(--text);font-family:'JetBrains Mono';font-size:13px;outline:none;">
+    </div>
+    <button onclick="authSignIn()" class="checkout-btn" style="margin-bottom:12px;">Sign In (Dev Bypass)</button>
+    <div style="font-family:'JetBrains Mono';font-size:10px;color:var(--text3);text-align:center;letter-spacing:1px;">Production: remove dev-mode meta → use Clerk JWT</div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════ UPLOAD BEAT MODAL -->
+<div class="modal-overlay" id="uploadModal" style="align-items:center;justify-content:center;">
+  <div style="background:var(--dark);border:1px solid var(--border2);border-radius:20px;width:540px;padding:40px;position:relative;max-height:90vh;overflow-y:auto;">
+    <button onclick="closeModal('uploadModal')" style="position:absolute;top:16px;right:16px;background:var(--dark3);border:1px solid var(--border);border-radius:8px;width:32px;height:32px;cursor:pointer;color:var(--text2);font-size:16px;">✕</button>
+    <div style="font-family:'Bebas Neue';font-size:26px;letter-spacing:2px;margin-bottom:4px;">UPLOAD BEAT</div>
+    <div style="font-family:'JetBrains Mono';font-size:10px;color:var(--text3);letter-spacing:2px;margin-bottom:28px;">POST /api/beats/upload → S3 → /api/beats/:id/process</div>
+
+    <div style="display:flex;gap:0;margin-bottom:28px;">
+      <div class="upload-step active" data-step="1">1 · Select File</div>
+      <div class="upload-step"        data-step="2">2 · Metadata</div>
+      <div class="upload-step"        data-step="3">3 · Upload</div>
+      <div class="upload-step"        data-step="4">4 · Processing</div>
+    </div>
+
+    <!-- Step 1 -->
+    <div id="upStep1">
+      <div id="dropZone" onclick="document.getElementById('fileInput').click()"
+        style="border:2px dashed var(--border2);border-radius:14px;padding:48px 24px;text-align:center;cursor:pointer;transition:all 0.2s;background:var(--dark2);">
+        <div style="font-size:40px;margin-bottom:12px;">🎵</div>
+        <div style="font-size:15px;font-weight:600;color:var(--text);margin-bottom:6px;">Drop your WAV or MP3 here</div>
+        <div style="font-size:13px;color:var(--text3);">or click to browse · Max 500MB</div>
+        <div style="margin-top:16px;font-family:'JetBrains Mono';font-size:10px;color:var(--text3);letter-spacing:1px;">WAV · MP3 · AIFF · FLAC</div>
+      </div>
+      <input type="file" id="fileInput" accept="audio/*" style="display:none;" onchange="handleFileSelect(this)">
+      <div id="fileInfo" style="display:none;margin-top:16px;background:var(--dark2);border:1px solid var(--border2);border-radius:10px;padding:14px 16px;align-items:center;gap:12px;">
+        <span style="font-size:24px;">🎧</span>
+        <div style="flex:1;">
+          <div id="fileName" style="font-size:13px;font-weight:600;color:var(--text);"></div>
+          <div id="fileSize" style="font-family:'JetBrains Mono';font-size:11px;color:var(--text3);"></div>
+        </div>
+        <button onclick="clearFile()" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:18px;">✕</button>
+      </div>
+      <button onclick="goToStep(2)" id="step1Next" disabled class="checkout-btn" style="margin-top:20px;opacity:0.4;">Continue →</button>
+    </div>
+
+    <!-- Step 2 -->
+    <div id="upStep2" style="display:none;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
+        <div>
+          <label style="font-family:'JetBrains Mono';font-size:10px;color:var(--text3);letter-spacing:2px;display:block;margin-bottom:6px;text-transform:uppercase;">Title *</label>
+          <input id="upTitle" type="text" placeholder="e.g. Dark Prophecy" style="width:100%;background:var(--dark2);border:1px solid var(--border2);border-radius:8px;padding:10px 12px;color:var(--text);font-size:14px;outline:none;font-family:'Outfit';">
+        </div>
+        <div>
+          <label style="font-family:'JetBrains Mono';font-size:10px;color:var(--text3);letter-spacing:2px;display:block;margin-bottom:6px;text-transform:uppercase;">Genre *</label>
+          <select id="upGenre" style="width:100%;background:var(--dark2);border:1px solid var(--border2);border-radius:8px;padding:10px 12px;color:var(--text);font-size:14px;outline:none;font-family:'Outfit';cursor:pointer;">
+            <option value="">Select genre</option>
+            <option value="trap">Trap</option><option value="drill">Drill</option>
+            <option value="rnb">R&amp;B</option><option value="hiphop">Hip-Hop</option>
+            <option value="pop">Pop</option><option value="lofi">Lo-Fi</option>
+            <option value="afro">Afrobeats</option><option value="soul">Soul</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-family:'JetBrains Mono';font-size:10px;color:var(--text3);letter-spacing:2px;display:block;margin-bottom:6px;text-transform:uppercase;">BPM *</label>
+          <input id="upBpm" type="number" placeholder="140" min="60" max="220" style="width:100%;background:var(--dark2);border:1px solid var(--border2);border-radius:8px;padding:10px 12px;color:var(--text);font-size:14px;outline:none;font-family:'Outfit';">
+        </div>
+        <div>
+          <label style="font-family:'JetBrains Mono';font-size:10px;color:var(--text3);letter-spacing:2px;display:block;margin-bottom:6px;text-transform:uppercase;">Key</label>
+          <input id="upKey" type="text" placeholder="e.g. Am, F#m, C" style="width:100%;background:var(--dark2);border:1px solid var(--border2);border-radius:8px;padding:10px 12px;color:var(--text);font-size:14px;outline:none;font-family:'Outfit';">
+        </div>
+        <div>
+          <label style="font-family:'JetBrains Mono';font-size:10px;color:var(--text3);letter-spacing:2px;display:block;margin-bottom:6px;text-transform:uppercase;">Mood</label>
+          <input id="upMood" type="text" placeholder="e.g. Dark, Chill, Hype" style="width:100%;background:var(--dark2);border:1px solid var(--border2);border-radius:8px;padding:10px 12px;color:var(--text);font-size:14px;outline:none;font-family:'Outfit';">
+        </div>
+        <div>
+          <label style="font-family:'JetBrains Mono';font-size:10px;color:var(--text3);letter-spacing:2px;display:block;margin-bottom:6px;text-transform:uppercase;">Tags</label>
+          <input id="upTags" type="text" placeholder="dark, trap, 808" style="width:100%;background:var(--dark2);border:1px solid var(--border2);border-radius:8px;padding:10px 12px;color:var(--text);font-size:14px;outline:none;font-family:'Outfit';">
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:4px;">
+        <button onclick="goToStep(1)" class="btn btn-ghost" style="flex:1;">← Back</button>
+        <button onclick="startUpload()" class="checkout-btn" style="flex:2;">Upload to S3 →</button>
+      </div>
+    </div>
+
+    <!-- Step 3 -->
+    <div id="upStep3" style="display:none;text-align:center;padding:20px 0;">
+      <div style="font-size:36px;margin-bottom:16px;" id="upIcon">⬆️</div>
+      <div style="font-size:15px;font-weight:600;color:var(--text);margin-bottom:8px;" id="upStatusText">Getting presigned URL...</div>
+      <div style="background:var(--dark3);border-radius:4px;height:6px;margin:16px 0;overflow:hidden;">
+        <div id="upProgressBar" style="height:100%;background:var(--gradient);width:0%;transition:width 0.3s;border-radius:4px;"></div>
+      </div>
+      <div style="font-family:'JetBrains Mono';font-size:11px;color:var(--text3);" id="upProgressText">0%</div>
+      <div id="upApiLog" style="margin-top:20px;background:var(--dark2);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:left;font-family:'JetBrains Mono';font-size:11px;color:var(--text3);line-height:1.8;max-height:160px;overflow-y:auto;"></div>
+    </div>
+
+    <!-- Step 4 -->
+    <div id="upStep4" style="display:none;text-align:center;padding:20px 0;">
+      <div style="font-size:48px;margin-bottom:16px;">⚙️</div>
+      <div style="font-family:'Bebas Neue';font-size:22px;letter-spacing:2px;color:var(--green);margin-bottom:8px;">UPLOAD COMPLETE!</div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:24px;">Your beat has been queued for audio processing.</div>
+      <div style="background:var(--dark2);border:1px solid var(--border);border-radius:12px;padding:16px;text-align:left;margin-bottom:20px;">
+        <div style="font-family:'JetBrains Mono';font-size:10px;color:var(--text3);letter-spacing:2px;margin-bottom:10px;">// PROCESSING PIPELINE</div>
+        <div class="pipeline-step" id="pStep1">⏳ Stage 1: Analyzing audio (FFprobe)</div>
+        <div class="pipeline-step" id="pStep2" style="opacity:0.3;">⬜ Stage 2: Generating waveform peaks</div>
+        <div class="pipeline-step" id="pStep3" style="opacity:0.3;">⬜ Stage 3: Creating tagged preview (MP3)</div>
+        <div class="pipeline-step" id="pStep4" style="opacity:0.3;">⬜ Stage 4: Encoding clean WAV (24-bit)</div>
+        <div class="pipeline-step" id="pStep5" style="opacity:0.3;">⬜ Publishing beat live...</div>
+      </div>
+      <button onclick="closeModal('uploadModal');resetUpload();" class="checkout-btn">Done ✓</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════ ARTIST DASHBOARD MODAL -->
+<div class="modal-overlay" id="dashModal" style="align-items:center;justify-content:center;">
+  <div style="background:var(--dark);border:1px solid var(--border2);border-radius:20px;width:680px;padding:40px;position:relative;max-height:90vh;overflow-y:auto;">
+    <button onclick="closeModal('dashModal')" style="position:absolute;top:16px;right:16px;background:var(--dark3);border:1px solid var(--border);border-radius:8px;width:32px;height:32px;cursor:pointer;color:var(--text2);font-size:16px;">✕</button>
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:28px;">
+      <div style="width:52px;height:52px;background:var(--gradient);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:24px;">🎛</div>
+      <div>
+        <div style="font-family:'Bebas Neue';font-size:26px;letter-spacing:2px;">ARTIST DASHBOARD</div>
+        <div style="font-family:'JetBrains Mono';font-size:11px;color:var(--text3);">GET /api/artists/:id/dashboard</div>
+      </div>
+    </div>
+    <div id="dashContent">
+      <div style="text-align:center;padding:40px;color:var(--text3);">
+        <div style="font-size:36px;margin-bottom:12px;">🔒</div>
+        <div>Sign in to view your dashboard</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════ ONBOARD ARTIST MODAL -->
+<div class="modal-overlay" id="onboardModal" style="align-items:center;justify-content:center;">
+  <div style="background:var(--dark);border:1px solid var(--border2);border-radius:20px;width:480px;padding:40px;position:relative;">
+    <button onclick="closeModal('onboardModal')" style="position:absolute;top:16px;right:16px;background:var(--dark3);border:1px solid var(--border);border-radius:8px;width:32px;height:32px;cursor:pointer;color:var(--text2);font-size:16px;">✕</button>
+    <div style="font-family:'Bebas Neue';font-size:26px;letter-spacing:2px;margin-bottom:4px;">BECOME A PRODUCER</div>
+    <div style="font-family:'JetBrains Mono';font-size:10px;color:var(--text3);letter-spacing:2px;margin-bottom:28px;">POST /api/artists/onboard → Stripe Connect KYC</div>
+    <div style="display:flex;flex-direction:column;gap:14px;margin-bottom:20px;">
+      <div>
+        <label style="font-family:'JetBrains Mono';font-size:10px;color:var(--text3);letter-spacing:2px;display:block;margin-bottom:6px;text-transform:uppercase;">Display Name *</label>
+        <input id="onDisplay" type="text" placeholder="Your producer name" style="width:100%;background:var(--dark2);border:1px solid var(--border2);border-radius:8px;padding:10px 12px;color:var(--text);font-size:14px;outline:none;font-family:'Outfit';">
+      </div>
+      <div>
+        <label style="font-family:'JetBrains Mono';font-size:10px;color:var(--text3);letter-spacing:2px;display:block;margin-bottom:6px;text-transform:uppercase;">Producer Tag *</label>
+        <input id="onTag" type="text" placeholder="e.g. prod. YourName" style="width:100%;background:var(--dark2);border:1px solid var(--border2);border-radius:8px;padding:10px 12px;color:var(--text);font-size:14px;outline:none;font-family:'Outfit';">
+      </div>
+    </div>
+    <div style="background:rgba(0,212,255,0.06);border:1px solid rgba(0,212,255,0.15);border-radius:10px;padding:14px;margin-bottom:20px;font-size:12px;color:var(--text2);line-height:1.7;">
+      <div style="font-family:'JetBrains Mono';font-size:10px;color:var(--cyan);letter-spacing:1px;margin-bottom:6px;">WHAT HAPPENS NEXT</div>
+      → Creates artist profile (status: pending_kyc)<br>
+      → stripe.accounts.create({ type: 'express' })<br>
+      → Redirects to Stripe KYC onboarding<br>
+      → account.updated webhook activates your account<br>
+      → Platform takes 20% — you keep 80%
+    </div>
+    <button onclick="startOnboard()" class="checkout-btn">Continue to Stripe →</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════ BEAT DETAIL MODAL -->
+<div class="modal-overlay" id="beatDetailModal" style="align-items:center;justify-content:center;">
+  <div style="background:var(--dark);border:1px solid var(--border2);border-radius:20px;width:600px;padding:40px;position:relative;max-height:90vh;overflow-y:auto;">
+    <button onclick="closeModal('beatDetailModal')" style="position:absolute;top:16px;right:16px;background:var(--dark3);border:1px solid var(--border);border-radius:8px;width:32px;height:32px;cursor:pointer;color:var(--text2);font-size:16px;">✕</button>
+    <div id="beatDetailContent"></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════ TOAST -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- ═══════════════════════════════════════════════ JS -->
+<script>
+/* ═══════════════════════════════════════════════════════════
+   WAVVAULT — Production Frontend
+   Split: wavvault.js (loaded as module)
+   
+   XSS PATCHES:
+   - All user-supplied strings pass through sanitize()
+   - No innerHTML on untrusted data; safe wrappers used
+   - textContent used for all dynamic text nodes
+   
+   ENV PATCHES:
+   - API_BASE read from <meta name="api-base"> or falls back
+   - BYPASS_AUTH explicitly false; dev mode requires opt-in
+═══════════════════════════════════════════════════════════ */
+
+/* ──────────────────────────────────────
+   ENVIRONMENT CONFIG
+   In production: set <meta name="api-base" content="https://api.wavvault.com/api">
+   In dev:        set <meta name="api-base" content="http://localhost:3001/api">
+────────────────────────────────────── */
+const CONFIG = (() => {
+  const metaBase = document.querySelector('meta[name="api-base"]');
+  const metaDev  = document.querySelector('meta[name="dev-mode"]');
+  return {
+    API_BASE:    metaBase ? metaBase.content : 'https://api.wavvault.com/api',
+    BYPASS_AUTH: metaDev  ? metaDev.content === 'true' : false,
+    // DEV_USER_ID is only used when BYPASS_AUTH is true AND the user has signed in via dev panel
+    DEV_USER_ID: null,
+  };
+})();
+
+/* ──────────────────────────────────────
+   XSS SANITIZATION
+   Use this for ALL user-supplied strings that go into the DOM.
+────────────────────────────────────── */
+const XSS_CHARS = { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":"&#x27;", '/':'&#x2F;' };
+function sanitize(str) {
+  if (str == null) return '';
+  return String(str).replace(/[&<>"'/]/g, c => XSS_CHARS[c]);
+}
+
+// Safe DOM helpers — avoids innerHTML for user data
+function el(tag, attrs = {}, ...children) {
+  const node = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === 'class') node.className = v;
+    else if (k === 'style') node.style.cssText = v;
+    else if (k.startsWith('on')) node.addEventListener(k.slice(2), v);
+    else node.setAttribute(k, v);
+  }
+  for (const child of children) {
+    if (child == null) continue;
+    node.appendChild(typeof child === 'string' ? document.createTextNode(child) : child);
+  }
+  return node;
+}
+
+function setText(id, text) {
+  const node = document.getElementById(id);
+  if (node) node.textContent = text;
+}
+
+// Safe innerHTML only for STATIC markup (no user data interpolated)
+// Never call this with user-supplied content
+function staticHTML(node, html) {
+  node.innerHTML = html;
+}
+
+/* ──────────────────────────────────────
+   API CLIENT
+────────────────────────────────────── */
+const API = {
+  headers() {
+    const h = { 'Content-Type': 'application/json' };
+    if (AUTH.token)     h['Authorization'] = `Bearer ${AUTH.token}`;
+    if (CONFIG.BYPASS_AUTH && AUTH.devUserId) h['x-dev-user-id'] = AUTH.devUserId;
+    return h;
+  },
+  async get(path, params = {}) {
+    const qs = new URLSearchParams(params).toString();
+    const url = `${CONFIG.API_BASE}${path}${qs ? '?' + qs : ''}`;
+    const res = await fetch(url, { headers: this.headers() });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.error || `${res.status} ${res.statusText}`);
+    }
+    return res.json();
+  },
+  async post(path, body = {}) {
+    const res = await fetch(`${CONFIG.API_BASE}${path}`, {
+      method: 'POST',
+      headers: this.headers(),
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || `${res.status} ${res.statusText}`);
+    }
+    return res.json();
+  },
+  async putRaw(url, file, onProgress) {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('PUT', url);
+      xhr.setRequestHeader('Content-Type', file.type || 'audio/wav');
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
+      };
+      xhr.onload  = () => xhr.status < 300 ? resolve() : reject(new Error(`S3 upload failed: ${xhr.status}`));
+      xhr.onerror = () => reject(new Error('Network error during S3 upload'));
+      xhr.send(file);
+    });
+  }
+};
+
+/* ──────────────────────────────────────
+   AUTH STATE
+   Production flow: Clerk SDK sets AUTH.token on login.
+   Dev bypass flow: only active when CONFIG.BYPASS_AUTH is true
+   (controlled by <meta name="dev-mode" content="true"> in HTML).
+────────────────────────────────────── */
+const AUTH = {
+  token:     null,
+  devUserId: null,
+  artistId:  null,
+  isLoggedIn: false,
+
+  signIn(devId) {
+    if (!CONFIG.BYPASS_AUTH) {
+      // Production: Clerk handles sign-in, this should not be called directly.
+      // Clerk's <SignIn> component sets AUTH.token via AUTH.setClerkToken().
+      console.warn('signIn() called in production mode — use Clerk SDK instead');
+      return;
+    }
+    if (!devId || !devId.trim()) {
+      showToast('Enter a dev user ID', '⚠️', 'toast-orange');
+      return;
+    }
+    this.devUserId = devId.trim();
+    this.isLoggedIn = true;
+    updateNavAuth();
+    closeModal('authModal');
+    showToast(`Signed in as ${sanitize(this.devUserId)}`, '✓', 'toast-left');
+    loadDashboard();
+  },
+
+  // Called by Clerk webhook/SDK in production
+  setClerkToken(jwt) {
+    this.token = jwt;
+    this.isLoggedIn = true;
+    updateNavAuth();
+    loadDashboard();
+  },
+
+  signOut() {
+    this.token = null;
+    this.devUserId = null;
+    this.isLoggedIn = false;
+    this.artistId = null;
+    updateNavAuth();
+    showToast('Signed out', '👋');
+  }
+};
+
+function authSignIn() {
+  const id = document.getElementById('devUserId').value.trim();
+  AUTH.signIn(id);
+}
+
+function updateNavAuth() {
+  const signInBtn = document.getElementById('navAuthBtn');
+  const userArea  = document.getElementById('navUserArea');
+  if (AUTH.isLoggedIn) {
+    signInBtn.style.display = 'none';
+    userArea.classList.add('show');
+    setText('navUserId', AUTH.devUserId || 'user');
+  } else {
+    signInBtn.style.display = '';
+    userArea.classList.remove('show');
+  }
+}
+
+/* ──────────────────────────────────────
+   ERROR DISPLAY — replaces mock fallbacks
+────────────────────────────────────── */
+function showError(containerId, message, retryFn) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  // Clear content safely
+  while (container.firstChild) container.removeChild(container.firstChild);
+
+  const wrapper = el('div', { style: 'display:flex;flex-direction:column;align-items:center;padding:60px 24px;gap:12px;' },
+    el('div', { style: 'font-size:32px;' }, '⚠️'),
+    el('div', { style: 'font-size:14px;font-weight:600;color:var(--text);' }, 'Something went wrong'),
+    el('div', { style: 'font-size:13px;color:var(--text3);text-align:center;max-width:300px;' }, message),
+  );
+
+  if (retryFn) {
+    const retryBtn = el('button', {
+      style: 'margin-top:8px;padding:8px 20px;border-radius:8px;background:var(--dark3);border:1px solid var(--border2);color:var(--cyan);cursor:pointer;font-size:13px;',
+      onclick: retryFn,
+    }, 'Try again');
+    wrapper.appendChild(retryBtn);
+  }
+
+  container.appendChild(wrapper);
+}
+
+/* ──────────────────────────────────────
+   HEALTH CHECK
+────────────────────────────────────── */
+async function checkHealth() {
+  const statusEl = document.getElementById('apiStatus');
+  const labelEl  = document.getElementById('apiStatusLabel');
+  if (!statusEl) return;
+  statusEl.className = 'checking';
+  labelEl.textContent = 'checking...';
+  try {
+    const url  = CONFIG.API_BASE.replace(/\/api$/, '') + '/health';
+    const data = await fetch(url).then(r => r.json());
+    if (data.status === 'ok') {
+      statusEl.className = 'ok';
+      labelEl.textContent = `API · DB:${sanitize(data.db)} · Redis:${sanitize(data.redis)}`;
+      showToast('Backend connected ✓', '🟢', 'toast-left');
+    } else {
+      throw new Error('unhealthy');
+    }
+  } catch {
+    statusEl.className = 'err';
+    labelEl.textContent = 'API offline';
+    showToast('Backend is unreachable. Check your server.', '⚠️', 'toast-orange');
+  }
+}
+
+/* ──────────────────────────────────────
+   BEATS
+────────────────────────────────────── */
+async function loadBeats(params = {}) {
+  try {
+    const data = await API.get('/beats', params);
+    return Array.isArray(data) ? data : (data.beats || []);
+  } catch {
+    // API offline — init() will fall back to DEMO_BEATS
+    // showError() is NOT called here so demo data renders cleanly
+    return null;
+  }
+}
+
+async function fetchBeatDetail(beat) {
+  try {
+    const live = await API.get(`/beats/${beat.id}`);
+    // Merge API data over local data (API is source of truth)
+    showBeatDetail({ ...beat, ...live });
+    API.post(`/beats/${beat.id}/play`).catch(() => {});
+  } catch {
+    // If detail fetch fails, show what we have locally — no fabricated data added
+    showBeatDetail(beat);
+  }
+}
+
+/* ──────────────────────────────────────
+   CHECKOUT
+────────────────────────────────────── */
+async function doCheckout() {
+  if (!AUTH.isLoggedIn) {
+    openModal('authModal');
+    showToast('Sign in to checkout', '🔒');
+    return;
+  }
+  if (cart.length === 0) return;
+
+  const btn = document.querySelector('.checkout-btn');
+  if (btn) { btn.textContent = 'Creating session...'; btn.disabled = true; }
+
+  try {
+    const item = cart[0];
+    const data = await API.post('/checkout/session', {
+      beatId:      item.apiId || String(item.id),
+      licenseType: (item.licenseType || 'MP3').toLowerCase(),
+    });
+
+    if (data.url) {
+      showToast('Redirecting to Stripe Checkout…', '💳');
+      window.open(data.url, '_blank', 'noopener,noreferrer');
+    } else {
+      throw new Error('No checkout URL returned from server');
+    }
+  } catch (e) {
+    // Real error, no fake success
+    showToast(`Checkout failed: ${e.message}`, '❌', 'toast-orange');
+  } finally {
+    if (btn) { btn.textContent = 'Checkout with Stripe →'; btn.disabled = false; }
+  }
+}
+
+/* ──────────────────────────────────────
+   ARTIST ONBOARDING
+────────────────────────────────────── */
+async function startOnboard() {
+  if (!AUTH.isLoggedIn) {
+    closeModal('onboardModal');
+    openModal('authModal');
+    return;
+  }
+
+  const displayName = document.getElementById('onDisplay').value.trim();
+  const producerTag = document.getElementById('onTag').value.trim();
+
+  if (!displayName || !producerTag) {
+    showToast('Please fill in all fields', '⚠️', 'toast-orange');
+    return;
+  }
+
+  const btn = document.querySelector('#onboardModal .checkout-btn');
+  btn.textContent = 'Creating account...';
+  btn.disabled = true;
+
+  try {
+    const data = await API.post('/artists/onboard', {
+      display_name: displayName,
+      producer_tag: producerTag,
+    });
+    AUTH.artistId = data.artistId;
+    if (data.onboardingUrl) {
+      showToast('Redirecting to Stripe KYC…', '🎉');
+      window.open(data.onboardingUrl, '_blank', 'noopener,noreferrer');
+    }
+    closeModal('onboardModal');
+  } catch (e) {
+    showToast(`Onboarding failed: ${e.message}`, '❌', 'toast-orange');
+  } finally {
+    btn.textContent = 'Continue to Stripe →';
+    btn.disabled = false;
+  }
+}
+
+/* ──────────────────────────────────────
+   ARTIST DASHBOARD
+────────────────────────────────────── */
+async function loadDashboard() {
+  if (!AUTH.isLoggedIn) return;
+  const container = document.getElementById('dashContent');
+  if (!container) return;
+  container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text3);">Loading...</div>';
+
+  try {
+    const artistId = AUTH.artistId || 'me';
+    const data = await API.get(`/artists/${artistId}/dashboard`);
+    renderDashboard(data, container);
+  } catch (e) {
+    showError('dashContent', `Could not load dashboard: ${e.message}`, loadDashboard);
+  }
+}
+
+function renderDashboard(data, container) {
+  const e = data.earnings || {};
+  const s = data.stats    || {};
+
+  while (container.firstChild) container.removeChild(container.firstChild);
+
+  const grid = el('div', { style: 'display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:24px;' });
+  [
+    ['Total Earnings', `$${Number(e.total  || 0).toFixed(2)}`, '#00E5A0'],
+    ['Pending Payout', `$${Number(e.pending|| 0).toFixed(2)}`, '#FFB800'],
+    ['Total Plays',    `${Number(s.total_plays || 0).toLocaleString()}`, '#00D4FF'],
+    ['Sales',          `${s.total_sales || 0}`, '#9B6BFF'],
+    ['Live Beats',     `${s.beats_live  || 0}`, '#FF6B2B'],
+    ['Net-7 Payout',   'Automatic', '#00E5A0'],
+  ].forEach(([label, val, color]) => {
+    grid.appendChild(el('div', { style: 'background:var(--dark2);border:1px solid var(--border);border-radius:12px;padding:16px;' },
+      el('div', { style: 'font-family:"JetBrains Mono",monospace;font-size:10px;color:var(--text3);letter-spacing:2px;text-transform:uppercase;margin-bottom:6px;' }, label),
+      el('div', { style: `font-family:"Bebas Neue",sans-serif;font-size:26px;color:${color};letter-spacing:1px;` }, val),
+    ));
+  });
+  container.appendChild(grid);
+
+  const salesBox = el('div', { style: 'background:var(--dark2);border:1px solid var(--border);border-radius:12px;padding:16px;' },
+    el('div', { style: 'font-family:"JetBrains Mono",monospace;font-size:10px;color:var(--text3);letter-spacing:2px;margin-bottom:12px;' }, '// RECENT SALES'),
+  );
+
+  const sales = data.recentSales || [];
+  if (sales.length === 0) {
+    salesBox.appendChild(el('div', { style: 'color:var(--text3);font-size:13px;padding:12px 0;' }, 'No sales yet — upload your first beat!'));
+  } else {
+    sales.forEach(sale => {
+      salesBox.appendChild(el('div', { style: 'display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);' },
+        el('div', {},
+          el('div', { style: 'font-size:13px;font-weight:600;' }, sanitize(sale.title)),
+          el('div', { style: 'font-family:"JetBrains Mono",monospace;font-size:10px;color:var(--text3);' }, `${sanitize(sale.license)} License`),
+        ),
+        el('div', { style: 'font-family:"Bebas Neue",sans-serif;font-size:20px;color:var(--green);' }, `$${Number(sale.amount).toFixed(2)}`),
+      ));
+    });
+  }
+  container.appendChild(salesBox);
+
+  const stripeStatus = data.artist || {};
+  container.appendChild(el('div', { style: 'margin-top:16px;background:rgba(0,212,255,0.06);border:1px solid rgba(0,212,255,0.15);border-radius:10px;padding:14px;' },
+    el('div', { style: 'font-family:"JetBrains Mono",monospace;font-size:10px;color:var(--cyan);letter-spacing:2px;margin-bottom:6px;' }, 'STRIPE CONNECT STATUS'),
+    el('div', { style: 'font-size:13px;color:var(--text2);' },
+      `charges_enabled: ${stripeStatus.charges_enabled ? '✅ true' : '❌ false'} · status: ${sanitize(stripeStatus.status || 'unknown')}`,
+    ),
+  ));
+}
+
+/* ──────────────────────────────────────
+   BEAT UPLOAD FLOW
+────────────────────────────────────── */
+let uploadFile   = null;
+let uploadBeatId = null;
+
+function handleFileSelect(input) {
+  const file = input.files[0];
+  if (!file) return;
+  uploadFile = file;
+  const fileInfoEl = document.getElementById('fileInfo');
+  fileInfoEl.style.display = 'flex';
+  setText('fileName', file.name);
+  setText('fileSize', `${(file.size / 1024 / 1024).toFixed(2)} MB · ${file.type || 'audio'}`);
+  const nextBtn = document.getElementById('step1Next');
+  nextBtn.disabled = false;
+  nextBtn.style.opacity = '1';
+}
+
+function clearFile() {
+  uploadFile = null;
+  document.getElementById('fileInput').value = '';
+  document.getElementById('fileInfo').style.display = 'none';
+  const nextBtn = document.getElementById('step1Next');
+  nextBtn.disabled = true;
+  nextBtn.style.opacity = '0.4';
+}
+
+function goToStep(n) {
+  [1,2,3,4].forEach(i => {
+    document.getElementById(`upStep${i}`).style.display = i === n ? '' : 'none';
+    const stepEl = document.querySelector(`.upload-step[data-step="${i}"]`);
+    if (stepEl) {
+      stepEl.classList.toggle('active', i === n);
+      stepEl.classList.toggle('done',   i < n);
+    }
+  });
+}
+
+async function startUpload() {
+  if (!AUTH.isLoggedIn) { closeModal('uploadModal'); openModal('authModal'); return; }
+  if (!uploadFile) return;
+
+  const title = document.getElementById('upTitle').value.trim();
+  const genre = document.getElementById('upGenre').value;
+  const bpm   = parseInt(document.getElementById('upBpm').value);
+
+  if (!title || !genre || !bpm) {
+    showToast('Please fill in Title, Genre, and BPM', '⚠️', 'toast-orange');
+    return;
+  }
+
+  goToStep(3);
+  const logEl = document.getElementById('upApiLog');
+
+  const log = (msg) => {
+    const line = el('div', { style: 'opacity:0.8;' }, msg);
+    logEl.appendChild(line);
+    logEl.scrollTop = logEl.scrollHeight;
+  };
+
+  const setProgress = (pct, text) => {
+    document.getElementById('upProgressBar').style.width = pct + '%';
+    setText('upProgressText', text || pct + '%');
+  };
+
+  const setStatus = (msg) => setText('upStatusText', msg);
+
+  try {
+    // STEP 1: Presigned S3 URL
+    log(`→ POST /api/beats/upload`);
+    setProgress(10, 'Getting upload URL...');
+    setStatus('Requesting presigned S3 URL...');
+
+    const uploadData = await API.post('/beats/upload', {
+      filename:    uploadFile.name,
+      contentType: uploadFile.type || 'audio/wav',
+      fileSize:    uploadFile.size,
+    });
+
+    const { uploadUrl, beatId, s3Key } = uploadData;
+    uploadBeatId = beatId;
+    log(`← beatId: ${beatId}  s3Key: ${s3Key}`);
+
+    // STEP 2: Upload to S3
+    setProgress(20, 'Uploading to S3...');
+    setStatus('Uploading to S3...');
+    log(`→ PUT ${uploadUrl.substring(0, 60)}...`);
+
+    await API.putRaw(uploadUrl, uploadFile, (pct) => {
+      setProgress(20 + pct * 0.5, `Uploading: ${pct}%`);
+    });
+    log(`← 200 OK · File uploaded`);
+
+    // STEP 3: Submit metadata
+    setProgress(75, 'Queuing processing...');
+    setStatus('Submitting metadata...');
+
+    const metadata = {
+      title,
+      genre,
+      bpm,
+      key:  document.getElementById('upKey').value.trim()  || undefined,
+      mood: document.getElementById('upMood').value.trim() || undefined,
+      tags: document.getElementById('upTags').value.split(',').map(t => t.trim()).filter(Boolean),
+    };
+
+    log(`→ POST /api/beats/${beatId}/process`);
+    await API.post(`/beats/${beatId}/process`, metadata);
+    log(`← { status: "processing" }`);
+
+    setProgress(100, 'Complete!');
+    setText('upIcon', '✅');
+    setStatus('Upload complete!');
+
+    await new Promise(r => setTimeout(r, 400));
+    goToStep(4);
+    simulateProcessingPipeline(title);
+
+  } catch (e) {
+    setText('upStatusText', `Error: ${e.message}`);
+    setText('upIcon', '❌');
+    log(`← ERROR: ${e.message}`);
+    showToast(`Upload failed: ${e.message}`, '❌', 'toast-orange');
+  }
+}
+
+async function simulateProcessingPipeline(title) {
+  const steps = [
+    { id:'pStep1', label:'✅ Stage 1: Audio analyzed (FFprobe)',                 delay:800  },
+    { id:'pStep2', label:'✅ Stage 2: Waveform peaks generated → S3 + Redis',     delay:1500 },
+    { id:'pStep3', label:'✅ Stage 3: Tagged preview created (128kbps MP3)',       delay:2200 },
+    { id:'pStep4', label:'✅ Stage 4: Clean WAV encoded (24-bit / 48kHz)',         delay:1800 },
+    { id:'pStep5', label:'✅ Beat is LIVE · Artist notification sent via SES',     delay:600  },
+  ];
+  for (const step of steps) {
+    await new Promise(r => setTimeout(r, step.delay));
+    const node = document.getElementById(step.id);
+    if (node) {
+      node.style.opacity = '1';
+      node.className = 'pipeline-step active';
+      node.textContent = step.label;  // textContent: safe
+      await new Promise(r => setTimeout(r, 200));
+      node.className = 'pipeline-step done';
+    }
+  }
+  showToast(`"${sanitize(title)}" is now live!`, '🎉', 'toast-left');
+}
+
+function resetUpload() {
+  uploadFile = uploadBeatId = null;
+  document.getElementById('fileInput').value = '';
+  document.getElementById('fileInfo').style.display = 'none';
+  const nextBtn = document.getElementById('step1Next');
+  nextBtn.disabled = true;
+  nextBtn.style.opacity = '0.4';
+  ['upTitle','upKey','upMood','upTags'].forEach(id => { const n = document.getElementById(id); if(n) n.value = ''; });
+  document.getElementById('upGenre').value = '';
+  document.getElementById('upBpm').value   = '';
+  document.getElementById('upApiLog').innerHTML = '';
+  goToStep(1);
+}
+
+/* ──────────────────────────────────────
+   BEAT DETAIL VIEW — XSS SAFE
+────────────────────────────────────── */
+let selectedLicenseType  = 'mp3';
+let selectedLicensePrice = 0;
+
+function showBeatDetail(beat) {
+  const prices = {
+    mp3:       beat.price || 29.99,
+    wav:       (beat.price || 29.99) * 1.8,
+    exclusive: (beat.price || 29.99) * 14,
+  };
+
+  const container = document.getElementById('beatDetailContent');
+  while (container.firstChild) container.removeChild(container.firstChild);
+
+  // Header row — all text via textContent
+  const artworkEl = el('div', {
+    style: 'width:80px;height:80px;border-radius:14px;background:var(--dark3);display:flex;align-items:center;justify-content:center;font-size:42px;border:1px solid var(--border2);flex-shrink:0;'
+  });
+  // Emoji is display-only from our own data; still use textContent
+  artworkEl.textContent = beat.emoji || '🎵';
+
+  const infoEl = el('div', { style: 'flex:1;' });
+  const titleEl = el('div', { style: 'font-family:"Bebas Neue",sans-serif;font-size:28px;letter-spacing:2px;' });
+  titleEl.textContent = beat.title;
+
+  const artistEl = el('div', { style: 'font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--text3);margin-top:4px;' });
+  artistEl.textContent = `by ${beat.producer || beat.artist_name || 'Unknown'}`;
+
+  const badgeRow = el('div', { style: 'display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;' });
+  const mkBadge = (text, cls) => { const b = el('span', { class: `fbc-badge ${cls}` }); b.textContent = text; return b; };
+  badgeRow.appendChild(mkBadge(`${beat.bpm} BPM`, 'badge-bpm'));
+  if (beat.key)   badgeRow.appendChild(mkBadge(beat.key, 'badge-key'));
+  if (beat.genre) badgeRow.appendChild(mkBadge(beat.genre.toUpperCase(), 'badge-genre'));
+  if (beat.hot)   badgeRow.appendChild(mkBadge('🔥 HOT', 'badge-hot'));
+  if (beat.excl)  badgeRow.appendChild(mkBadge('EXCLUSIVE', 'badge-excl'));
+
+  infoEl.appendChild(titleEl);
+  infoEl.appendChild(artistEl);
+  infoEl.appendChild(badgeRow);
+
+  container.appendChild(el('div', { style: 'display:flex;align-items:flex-start;gap:20px;margin-bottom:24px;' }, artworkEl, infoEl));
+
+  // Waveform placeholder
+  const wfPlaceholder = el('div', { style: 'background:var(--dark2);border:1px solid var(--border);border-radius:12px;height:72px;margin-bottom:20px;display:flex;align-items:center;justify-content:center;color:var(--text3);font-family:"JetBrains Mono",monospace;font-size:11px;' });
+  wfPlaceholder.textContent = `GET /api/beats/${beat.id}/peaks → WaveSurfer waveform`;
+  container.appendChild(wfPlaceholder);
+
+  // License picker — static labels only (no user data)
+  const licLabel = el('div', { style: 'font-family:"JetBrains Mono",monospace;font-size:10px;color:var(--text3);letter-spacing:2px;text-transform:uppercase;margin-bottom:12px;' });
+  licLabel.textContent = 'Choose License';
+  container.appendChild(licLabel);
+
+  const licGrid = el('div', { style: 'display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px;' });
+  [
+    { type:'mp3',       label:'MP3 Basic',      price: prices.mp3,       desc:'MP3 · 500K streams · Non-exclusive',   color:'var(--cyan)'   },
+    { type:'wav',       label:'WAV + Trackout',  price: prices.wav,       desc:'WAV + stems · Unlimited · Non-excl.',  color:'var(--purple)' },
+    { type:'exclusive', label:'Exclusive Rights', price: prices.exclusive, desc:'Full ownership · Beat removed from marketplace', color:'var(--gold)' },
+  ].forEach(l => {
+    const opt = el('div', { class: 'license-option', id: `lic-${beat.id}-${l.type}`,
+      onclick: () => selectLicenseDetail(beat.id, l.type, l.price) });
+    const typeLabel = el('div', { style: `font-size:11px;font-weight:700;color:${l.color};margin-bottom:4px;font-family:"JetBrains Mono",monospace;text-transform:uppercase;` });
+    typeLabel.textContent = l.label;
+    const priceEl = el('div', { style: 'font-family:"Bebas Neue",sans-serif;font-size:22px;letter-spacing:1px;' });
+    priceEl.textContent = `$${l.price.toFixed(0)}`;
+    const descEl = el('div', { style: 'font-size:11px;color:var(--text3);margin-top:4px;line-height:1.4;' });
+    descEl.textContent = l.desc;
+    opt.appendChild(typeLabel); opt.appendChild(priceEl); opt.appendChild(descEl);
+    licGrid.appendChild(opt);
+  });
+  container.appendChild(licGrid);
+
+  // Add to cart button
+  const cartBtn = el('button', { class: 'checkout-btn', onclick: () => addToCartFromDetail(beat) });
+  cartBtn.textContent = '+ Add to Cart';
+  container.appendChild(cartBtn);
+
+  openModal('beatDetailModal');
+}
+
+function selectLicenseDetail(beatId, type, price) {
+  selectedLicenseType  = type;
+  selectedLicensePrice = price;
+  document.querySelectorAll(`[id^="lic-${beatId}-"]`).forEach(el => el.classList.remove('selected'));
+  const sel = document.getElementById(`lic-${beatId}-${type}`);
+  if (sel) sel.classList.add('selected');
+}
+
+function addToCartFromDetail(beat) {
+  const type = selectedLicenseType || 'mp3';
+  const price = selectedLicensePrice || beat.price;
+  cart.push({ ...beat, licenseType: type.toUpperCase(), price });
+  updateCartUI();
+  closeModal('beatDetailModal');
+  showToast(`"${sanitize(beat.title)}" (${type.toUpperCase()}) added`, '🛒', 'toast-orange');
+}
+
+/* ──────────────────────────────────────
+   MODAL HELPERS
+────────────────────────────────────── */
+function openModal(id)  { document.getElementById(id)?.classList.add('open');    }
+function closeModal(id) { document.getElementById(id)?.classList.remove('open'); }
+
+document.querySelectorAll('.modal-overlay').forEach(overlay => {
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) overlay.classList.remove('open');
+  });
+});
+
+/* ──────────────────────────────────────
+   DRAG & DROP
+────────────────────────────────────── */
+const dropZone = document.getElementById('dropZone');
+if (dropZone) {
+  dropZone.addEventListener('dragover',  (e) => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+  dropZone.addEventListener('dragleave', ()  => dropZone.classList.remove('drag-over'));
+  dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropZone.classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (file?.type.startsWith('audio/')) {
+      const dt = new DataTransfer();
+      dt.items.add(file);
+      document.getElementById('fileInput').files = dt.files;
+      handleFileSelect(document.getElementById('fileInput'));
+    }
+  });
+}
+
+/* ──────────────────────────────────────
+   DEMO DATA (used only in dev/demo, not injected when API is live)
+────────────────────────────────────── */
+const DEMO_BEATS = [
+  { id:1,  title:'Dark Prophecy',    producer:'MetroKing',     genre:'trap',   bpm:140, key:'Am', mood:'Dark',       price:29.99, plays:'48.2K', duration:'3:02', emoji:'🖤', hot:true,  newR:false, excl:false },
+  { id:2,  title:'Golden Hour',      producer:'SunsetBeatz',   genre:'rnb',    bpm:88,  key:'Dm', mood:'Smooth',     price:34.99, plays:'31.7K', duration:'2:47', emoji:'🌅', hot:false, newR:true,  excl:false },
+  { id:3,  title:'Block Report',     producer:'GrimProd',      genre:'drill',  bpm:144, key:'Gm', mood:'Hard',       price:24.99, plays:'62.4K', duration:'3:15', emoji:'🔫', hot:true,  newR:false, excl:false },
+  { id:4,  title:'Lotus Dreams',     producer:'AstralWaves',   genre:'lofi',   bpm:72,  key:'C',  mood:'Chill',      price:19.99, plays:'94.1K', duration:'2:30', emoji:'🌸', hot:false, newR:false, excl:false },
+  { id:5,  title:'Lagos Nights',     producer:'AfroGod',       genre:'afro',   bpm:102, key:'F',  mood:'Vibrant',    price:39.99, plays:'27.8K', duration:'3:44', emoji:'🌍', hot:false, newR:true,  excl:true  },
+  { id:6,  title:'Pop Star Energy',  producer:'BeatFactory',   genre:'pop',    bpm:128, key:'G',  mood:'Upbeat',     price:44.99, plays:'55.9K', duration:'2:58', emoji:'⭐', hot:true,  newR:false, excl:false },
+  { id:7,  title:'Midnight Ritual',  producer:'OccultSoundz',  genre:'trap',   bpm:138, key:'F#m',mood:'Eerie',      price:29.99, plays:'41.3K', duration:'3:20', emoji:'🌙', hot:false, newR:true,  excl:false },
+  { id:8,  title:'Neo Seoul',        producer:'CyberBeat',     genre:'pop',    bpm:120, key:'Bm', mood:'Futuristic', price:49.99, plays:'18.6K', duration:'3:08', emoji:'🤖', hot:false, newR:true,  excl:false },
+  { id:9,  title:'Ice Cold',         producer:'FrostKing',     genre:'drill',  bpm:150, key:'Em', mood:'Cold',       price:27.99, plays:'73.2K', duration:'2:52', emoji:'❄️', hot:true,  newR:false, excl:false },
+  { id:10, title:'Heartbreak Hotel', producer:'SoulProd',      genre:'rnb',    bpm:76,  key:'Ab', mood:'Emotional',  price:34.99, plays:'22.4K', duration:'3:35', emoji:'💔', hot:false, newR:false, excl:false },
+  { id:11, title:'Rain Study',       producer:'LoFiLabs',      genre:'lofi',   bpm:68,  key:'C',  mood:'Peaceful',   price:14.99, plays:'112K',  duration:'4:00', emoji:'🌧️',hot:true,  newR:false, excl:false },
+  { id:12, title:'Victory Lap',      producer:'ChampionBeatz', genre:'trap',   bpm:145, key:'D',  mood:'Hype',       price:39.99, plays:'36.5K', duration:'3:12', emoji:'🏆', hot:false, newR:true,  excl:false },
+  { id:13, title:'Purple Rain',      producer:'VioletSound',   genre:'rnb',    bpm:94,  key:'Bb', mood:'Nostalgic',  price:44.99, plays:'19.1K', duration:'3:28', emoji:'🟣', hot:false, newR:true,  excl:false },
+  { id:14, title:'Street Gospel',    producer:'GrimProd',      genre:'hiphop', bpm:93,  key:'Cm', mood:'Soulful',    price:29.99, plays:'33.8K', duration:'3:05', emoji:'🙏', hot:true,  newR:false, excl:false },
+  { id:15, title:'Carbon',           producer:'CyberBeat',     genre:'trap',   bpm:142, key:'Dm', mood:'Dark',       price:35.99, plays:'28.4K', duration:'2:55', emoji:'⚫', hot:false, newR:true,  excl:true  },
+  { id:16, title:'Afro Nation',      producer:'AfroGod',       genre:'afro',   bpm:106, key:'Am', mood:'Energetic',  price:39.99, plays:'51.2K', duration:'3:50', emoji:'🥁', hot:true,  newR:false, excl:false },
+];
+
+const DEMO_PRODUCERS = [
+  { name:'MetroKing',   handle:'@metroking',   emoji:'👑', beats:142, sales:'$24K', genre:'Trap'  },
+  { name:'GrimProd',    handle:'@grimprod',    emoji:'💀', beats:87,  sales:'$18K', genre:'Drill' },
+  { name:'AstralWaves', handle:'@astralwaves', emoji:'🌊', beats:203, sales:'$12K', genre:'Lo-Fi' },
+  { name:'AfroGod',     handle:'@afrogod',     emoji:'🌍', beats:95,  sales:'$31K', genre:'Afro'  },
+];
+
+const GENRE_COLORS = {
+  trap:'#9B6BFF', drill:'#FF3B5C', rnb:'#FFB800',
+  lofi:'#00D4FF', afro:'#FF6B2B', pop:'#00E5A0',
+  hiphop:'#9B6BFF', soul:'#FFB800'
+};
+
+/* ──────────────────────────────────────
+   STATE
+────────────────────────────────────── */
+let BEATS         = [...DEMO_BEATS]; // replaced with API data when available
+let currentId     = null;
+let isPlaying     = false;
+let cart          = [];
+let wavesurfers   = {};
+let fakeTime      = 0;
+let ticker        = null;
+let currentFilter = 'all';
+let filteredBeats = [...BEATS];
+let viewMode      = 'list';
+let heroWS        = null;
+let heroPlaying   = false;
+
+/* ──────────────────────────────────────
+   HELPERS
+────────────────────────────────────── */
+function genPeaks(id, n = 180) {
+  const s = id * 17 + 3;
+  const out = [];
+  let v = 0.4;
+  for (let i = 0; i < n; i++) {
+    v += Math.sin(i*0.31+s)*0.12 + Math.sin(i*0.08+s*0.4)*0.22 + Math.sin(i*s*0.003)*0.15;
+    v  = Math.max(0.05, Math.min(0.95, v));
+    out.push(Math.round(v * 1000) / 1000);
+  }
+  return out;
+}
+
+function parseDur(d)  { const [m, s] = d.split(':').map(Number); return m*60+s; }
+function fmtTime(s)   { const m = Math.floor(s/60), sec = Math.floor(s%60); return `${m}:${sec.toString().padStart(2,'0')}`; }
+
+/* ──────────────────────────────────────
+   HERO WAVESURFER
+────────────────────────────────────── */
+function initHeroWS() {
+  heroWS = WaveSurfer.create({
+    container:     '#heroWaveform',
+    waveColor:     'rgba(155,107,255,0.4)',
+    progressColor: '#9B6BFF',
+    cursorColor:   'rgba(255,255,255,0.2)',
+    barWidth:2, barGap:1, barRadius:2,
+    height:64, normalize:true, interact:true,
+  });
+  heroWS.load('', [genPeaks(BEATS[0].id, 200)], parseDur(BEATS[0].duration));
+  heroWS.on('ready', () => { const l = document.getElementById('heroLoading'); if(l) l.style.display = 'none'; });
+  setTimeout(() => { const l = document.getElementById('heroLoading'); if(l) l.style.display = 'none'; }, 800);
+}
+
+function toggleHeroPlay() {
+  heroPlaying = !heroPlaying;
+  const btn = document.getElementById('heroPlayBtn');
+  if (heroPlaying) {
+    staticHTML(btn, `<div style="display:flex;gap:2px;align-items:flex-end;height:16px;"><div style="width:3px;height:8px;background:#000;border-radius:1px;animation:playAnim 0.7s 0s ease-in-out infinite"></div><div style="width:3px;height:14px;background:#000;border-radius:1px;animation:playAnim 0.7s 0.12s ease-in-out infinite"></div><div style="width:3px;height:10px;background:#000;border-radius:1px;animation:playAnim 0.7s 0.24s ease-in-out infinite"></div></div>`);
+  } else {
+    btn.textContent = '▶';
+  }
+}
+
+/* ──────────────────────────────────────
+   RENDER BEAT LIST — XSS SAFE
+────────────────────────────────────── */
+function renderList(beats) {
+  const listEl = document.getElementById('beatList');
+  while (listEl.firstChild) listEl.removeChild(listEl.firstChild);
+  Object.values(wavesurfers).forEach(ws => { try { ws.destroy(); } catch {} });
+  wavesurfers = {};
+
+  beats.forEach((b, idx) => {
+    const color = GENRE_COLORS[b.genre] || '#9B6BFF';
+    const row   = document.createElement('div');
+    row.className = 'beat-row';
+    row.id        = `row-${b.id}`;
+
+    // Build all sub-elements with textContent / safe wrappers
+    const numEl = el('div', { class:'row-num', id:`rnum-${b.id}` }, String(idx+1));
+
+    const playBtn = el('button', { class:'row-play', id:`rplay-${b.id}`,
+      onclick: (e) => { e.stopPropagation(); toggleBeat(b.id); }
+    }, '▶');
+
+    // Info column
+    const titleLineEl = el('div', { class:'row-title-line' });
+    const titleSpan = el('span', { class:'row-title' });
+    titleSpan.textContent = `${b.emoji} ${b.title}`;
+    const producerSpan = el('span', { class:'row-producer' });
+    const producerLink = el('a', { href:'#' });
+    producerLink.textContent = b.producer;
+    producerSpan.appendChild(document.createTextNode('by '));
+    producerSpan.appendChild(producerLink);
+
+    const tagsEl = el('div', { class:'row-tags' });
+    const addTag = (text, style) => {
+      const t = el('span', { class:'row-tag', style });
+      t.textContent = text;
+      tagsEl.appendChild(t);
+    };
+    if (b.hot)  addTag('🔥 HOT',    'background:rgba(255,107,43,0.15);color:var(--orange);border:1px solid rgba(255,107,43,0.25);');
+    if (b.newR) addTag('NEW',       'background:rgba(0,229,160,0.12);color:var(--green);border:1px solid rgba(0,229,160,0.2);');
+    if (b.excl) addTag('EXCLUSIVE', 'background:rgba(255,184,0,0.12);color:var(--gold);border:1px solid rgba(255,184,0,0.25);');
+    addTag(`${b.bpm} BPM`, null); tagsEl.lastChild.classList.add('badge-bpm');
+    addTag(b.key, null);          tagsEl.lastChild.classList.add('badge-key');
+    addTag(b.genre.toUpperCase(), 'background:rgba(255,255,255,0.06);color:var(--text3);border:1px solid var(--border);');
+
+    titleLineEl.appendChild(titleSpan);
+    titleLineEl.appendChild(producerSpan);
+    titleLineEl.appendChild(tagsEl);
+
+    const wfEl    = el('div', { class:`row-waveform wc-${b.genre}`, id:`wf-${b.id}` });
+    const statsEl = el('div', { class:'row-stats' });
+    ['▶ '+b.plays, '⏱ '+b.duration, '🎵 '+b.mood].forEach(s => {
+      const span = el('span', { class:'row-stat' });
+      span.textContent = s;
+      statsEl.appendChild(span);
+    });
+
+    const infoEl = el('div', { class:'row-info' });
+    infoEl.appendChild(titleLineEl);
+    infoEl.appendChild(wfEl);
+    infoEl.appendChild(statsEl);
+
+    // Price + actions column — static math, no user data
+    const priceWhole = Math.floor(b.price);
+    const priceCents = String(Math.round((b.price % 1) * 100)).padStart(2, '0');
+    const priceEl    = el('div', { class:'row-price' });
+    priceEl.textContent = `$${priceWhole}`;
+    const centsSpan = el('span', { class:'cents' });
+    centsSpan.textContent = `.${priceCents}`;
+    priceEl.appendChild(centsSpan);
+
+    const licBtns = el('div', { class:'row-license-btns' });
+    [['MP3','rlic-mp3'],['WAV','rlic-wav'],['Exclusive','rlic-excl']].forEach(([type, cls]) => {
+      const btn2 = el('button', { class:`rlic ${cls}`,
+        onclick: (e) => { e.stopPropagation(); selectLicense(b.id, type); }
+      });
+      btn2.textContent = type === 'Exclusive' ? 'EXCL' : type;
+      licBtns.appendChild(btn2);
+    });
+
+    const addBtn = el('button', { class:'add-cart-btn',
+      onclick: (e) => { e.stopPropagation(); addToCart(b.id); }
+    });
+    addBtn.textContent = '+ Add to Cart';
+
+    const actionsEl = el('div', { class:'row-actions' });
+    actionsEl.appendChild(priceEl);
+    actionsEl.appendChild(licBtns);
+    actionsEl.appendChild(addBtn);
+
+    row.appendChild(numEl);
+    row.appendChild(playBtn);
+    row.appendChild(infoEl);
+    row.appendChild(actionsEl);
+
+    row.addEventListener('click', () => fetchBeatDetail(b));
+    listEl.appendChild(row);
+    setTimeout(() => initWS(b, color), idx * 80);
+  });
+}
+
+/* ──────────────────────────────────────
+   RENDER GRID — XSS SAFE
+────────────────────────────────────── */
+function renderGrid(beats) {
+  const gridEl = document.getElementById('beatGrid');
+  while (gridEl.firstChild) gridEl.removeChild(gridEl.firstChild);
+
+  beats.forEach(b => {
+    const card = el('div', { class:'beat-card' });
+
+    const artwork = el('div', { class:'bc-artwork' });
+    const emojiSpan = el('span', { style:'font-size:44px;position:relative;z-index:1;' });
+    emojiSpan.textContent = b.emoji;
+    const overlay = el('div', { class:'bc-artwork-overlay' });
+    const bigPlay = el('button', { class:'bc-play-big',
+      onclick: (e) => { e.stopPropagation(); toggleBeat(b.id); }
+    });
+    bigPlay.textContent = '▶';
+    overlay.appendChild(bigPlay);
+    artwork.appendChild(emojiSpan);
+    artwork.appendChild(overlay);
+
+    const info = el('div', { class:'bc-info' });
+    const titleEl = el('div', { class:'bc-title' }); titleEl.textContent = b.title;
+    const prodEl  = el('div', { class:'bc-producer' }); prodEl.textContent = b.producer;
+    info.appendChild(titleEl); info.appendChild(prodEl);
+
+    const tagsEl = el('div', { class:'bc-tags' });
+    const addBadge = (text, cls) => { const s = el('span', { class:`fbc-badge ${cls}` }); s.textContent = text; tagsEl.appendChild(s); };
+    addBadge(`${b.bpm} BPM`, 'badge-bpm');
+    addBadge(b.key, 'badge-key');
+    if (b.hot)  addBadge('🔥', 'badge-hot');
+    if (b.newR) addBadge('NEW', 'badge-new');
+
+    const footer = el('div', { class:'bc-footer' });
+    const priceEl = el('div', { class:'bc-price' }); priceEl.textContent = `$${Math.floor(b.price)}`;
+    const addBtn  = el('button', { class:'bc-add', onclick: (e) => { e.stopPropagation(); addToCart(b.id); } });
+    addBtn.textContent = '+';
+    footer.appendChild(priceEl); footer.appendChild(addBtn);
+
+    card.appendChild(artwork); card.appendChild(info); card.appendChild(tagsEl); card.appendChild(footer);
+    card.addEventListener('click', () => fetchBeatDetail(b));
+    gridEl.appendChild(card);
+  });
+}
+
+/* ──────────────────────────────────────
+   RENDER NEW RELEASES — XSS SAFE
+────────────────────────────────────── */
+function renderNewReleases() {
+  const el2 = document.getElementById('newReleasesGrid');
+  while (el2.firstChild) el2.removeChild(el2.firstChild);
+  BEATS.filter(b => b.newR).slice(0, 4).forEach(b => {
+    const card = el('div', { class:'beat-card' });
+
+    const artwork = el('div', { class:'bc-artwork', style:'aspect-ratio:3/2;' });
+    const emojiEl = el('span', { style:'font-size:40px;position:relative;z-index:1;' });
+    emojiEl.textContent = b.emoji;
+    const overlay = el('div', { class:'bc-artwork-overlay' });
+    const playBtn = el('button', { class:'bc-play-big', onclick: (e) => { e.stopPropagation(); toggleBeat(b.id); }});
+    playBtn.textContent = '▶';
+    overlay.appendChild(playBtn);
+    artwork.appendChild(emojiEl); artwork.appendChild(overlay);
+
+    const info = el('div', { class:'bc-info', style:'margin-top:12px;' });
+    const t = el('div', { class:'bc-title' }); t.textContent = b.title;
+    const p = el('div', { class:'bc-producer' }); p.textContent = b.producer;
+    info.appendChild(t); info.appendChild(p);
+
+    const tags = el('div', { class:'bc-tags', style:'margin-top:8px;' });
+    const mk = (text, cls) => { const s = el('span', { class:`fbc-badge ${cls}` }); s.textContent = text; return s; };
+    tags.appendChild(mk(`${b.bpm} BPM`, 'badge-bpm'));
+    tags.appendChild(mk(b.key, 'badge-key'));
+    tags.appendChild(mk('NEW', 'badge-new'));
+
+    const footer = el('div', { class:'bc-footer', style:'margin-top:12px;' });
+    const pr = el('div', { class:'bc-price' }); pr.textContent = `$${Math.floor(b.price)}`;
+    const ab = el('button', { class:'bc-add', onclick:(e)=>{e.stopPropagation();addToCart(b.id);} });
+    ab.textContent = '+';
+    footer.appendChild(pr); footer.appendChild(ab);
+
+    card.appendChild(artwork); card.appendChild(info); card.appendChild(tags); card.appendChild(footer);
+    card.addEventListener('click', () => fetchBeatDetail(b));
+    el2.appendChild(card);
+  });
+}
+
+/* ──────────────────────────────────────
+   RENDER PRODUCERS — XSS SAFE
+────────────────────────────────────── */
+function renderProducers() {
+  const gridEl = document.getElementById('producerGrid');
+  while (gridEl.firstChild) gridEl.removeChild(gridEl.firstChild);
+  DEMO_PRODUCERS.forEach(p => {
+    const card = el('div', { class:'producer-card' });
+    const avatar = el('div', { class:'prod-avatar', style:'background:var(--dark3);' });
+    staticHTML(avatar, '<div class="prod-avatar-ring"></div>');
+    const emojiEl = el('span', { style:'font-size:30px;position:relative;z-index:1;' });
+    emojiEl.textContent = p.emoji;
+    avatar.appendChild(emojiEl);
+
+    const nameEl = el('div', { class:'prod-name' }); nameEl.textContent = p.name;
+    const tagEl  = el('div', { class:'prod-tag'  }); tagEl.textContent  = p.handle;
+    const stats  = el('div', { class:'prod-stats' });
+    [[p.beats,'Beats'],[p.sales,'Sales'],[p.genre,'Genre']].forEach(([num, label]) => {
+      const item = el('div', { class:'ps-item' });
+      const n = el('div', { class:'ps-num' }); n.textContent = num;
+      const l = el('div', { class:'ps-label' }); l.textContent = label;
+      item.appendChild(n); item.appendChild(l);
+      stats.appendChild(item);
+    });
+    card.appendChild(avatar); card.appendChild(nameEl); card.appendChild(tagEl); card.appendChild(stats);
+    gridEl.appendChild(card);
+  });
+}
+
+/* ──────────────────────────────────────
+   PRODUCERS SCROLLING BAR
+────────────────────────────────────── */
+function renderProducersBar() {
+  const barData = [
+    {n:'MetroKing',e:'👑',c:'142 beats'},{n:'GrimProd',e:'💀',c:'87 beats'},
+    {n:'AstralWaves',e:'🌊',c:'203 beats'},{n:'AfroGod',e:'🌍',c:'95 beats'},
+    {n:'SunsetBeatz',e:'🌅',c:'67 beats'},{n:'CyberBeat',e:'🤖',c:'118 beats'},
+    {n:'FrostKing',e:'❄️',c:'74 beats'},{n:'BeatFactory',e:'⭐',c:'156 beats'},
+    {n:'LoFiLabs',e:'🌧️',c:'230 beats'},{n:'VioletSound',e:'🟣',c:'49 beats'},
+  ];
+  const track = document.getElementById('pbTrack');
+  while (track.firstChild) track.removeChild(track.firstChild);
+  [...barData, ...barData].forEach(p => {
+    const item   = el('div', { class:'pb-item' });
+    const avatar = el('div', { class:'pb-avatar', style:'background:var(--dark3);' });
+    avatar.textContent = p.e;
+    const name = el('span', { class:'pb-name' }); name.textContent = p.n;
+    const cnt  = el('span', { class:'pb-count' }); cnt.textContent  = p.c;
+    item.appendChild(avatar); item.appendChild(name); item.appendChild(cnt);
+    track.appendChild(item);
+  });
+}
+
+/* ──────────────────────────────────────
+   WAVESURFER
+────────────────────────────────────── */
+function initWS(beat, color) {
+  const container = document.getElementById(`wf-${beat.id}`);
+  if (!container || wavesurfers[beat.id]) return;
+  const ws = WaveSurfer.create({
+    container, waveColor: color+'50', progressColor: color,
+    cursorColor:'rgba(255,255,255,0.15)', barWidth:2, barGap:1, barRadius:2,
+    height:48, normalize:true, interact:true,
+  });
+  ws.load('', [genPeaks(beat.id, 180)], parseDur(beat.duration));
+  ws.on('interaction', (pct) => { if (currentId === beat.id) fakeTime = pct * parseDur(beat.duration); });
+  wavesurfers[beat.id] = ws;
+}
+
+/* ──────────────────────────────────────
+   PLAYBACK
+────────────────────────────────────── */
+function toggleBeat(id) {
+  if (currentId === id) {
+    isPlaying = !isPlaying;
+    updatePlayState();
+    isPlaying ? startTicker() : stopTicker();
+    return;
+  }
+  if (currentId) resetBeatUI(currentId);
+  stopTicker();
+  currentId = id; isPlaying = true; fakeTime = 0;
+  const beat = BEATS.find(b => b.id === id);
+  updateStickyPlayer(beat);
+  updatePlayState();
+  startTicker();
+  API.post(`/beats/${id}/play`).catch(() => {});
+}
+
+function resetBeatUI(id) {
+  const row = document.getElementById(`row-${id}`);
+  if (row) {
+    row.classList.remove('is-playing');
+    const btn = document.getElementById(`rplay-${id}`);
+    if (btn) btn.textContent = '▶';
+    const rnum = document.getElementById(`rnum-${id}`);
+    if (rnum) rnum.textContent = String(filteredBeats.findIndex(b => b.id === id) + 1);
+  }
+  const ws = wavesurfers[id];
+  if (ws) try { ws.seekTo(0); } catch {}
+}
+
+function updatePlayState() {
+  if (!currentId) return;
+  document.querySelectorAll('.beat-row').forEach(r => r.classList.remove('is-playing'));
+  const row = document.getElementById(`row-${currentId}`);
+  if (row && isPlaying) row.classList.add('is-playing');
+  const btn = document.getElementById(`rplay-${currentId}`);
+  if (btn) {
+    if (isPlaying) {
+      staticHTML(btn, `<div class="playing-anim"><div class="pa-bar"></div><div class="pa-bar"></div><div class="pa-bar"></div></div>`);
+      btn.style.background = 'var(--cyan)'; btn.style.color = '#000';
+    } else {
+      btn.textContent = '▶';
+      btn.style.background = btn.style.color = '';
+    }
+  }
+  document.getElementById('stickyPlayer').classList.add('show');
+  const mainPlay = document.getElementById('mainPlay');
+  mainPlay.textContent = isPlaying ? '⏸' : '▶';
+  document.getElementById('stickyPlayer').classList.toggle('playing', isPlaying);
+}
+
+function updateStickyPlayer(beat) {
+  const artEl = document.getElementById('spArt');
+  artEl.textContent = '';
+  const emojiEl = el('span', { style:'font-size:22px;' });
+  emojiEl.textContent = beat.emoji;
+  artEl.appendChild(emojiEl);
+
+  setText('spTitle',  `${beat.emoji} ${beat.title}`);
+  setText('spArtist', `${beat.producer} · ${beat.bpm} BPM · ${beat.key}`);
+  setText('spDur',    beat.duration);
+  setText('spCur',    '0:00');
+  document.getElementById('spFill').style.width = '0%';
+
+  const tagsEl = document.getElementById('spTags');
+  while (tagsEl.firstChild) tagsEl.removeChild(tagsEl.firstChild);
+  const genreTag = el('span', { class:'fbc-badge badge-genre', style:'font-size:9px;' });
+  genreTag.textContent = beat.genre.toUpperCase();
+  tagsEl.appendChild(genreTag);
+  if (beat.hot) {
+    const hotTag = el('span', { class:'fbc-badge badge-hot', style:'font-size:9px;' });
+    hotTag.textContent = '🔥';
+    tagsEl.appendChild(hotTag);
+  }
+}
+
+/* ──────────────────────────────────────
+   PROGRESS TICKER
+────────────────────────────────────── */
+function startTicker() {
+  stopTicker();
+  const beat = BEATS.find(b => b.id === currentId);
+  if (!beat) return;
+  const total = parseDur(beat.duration);
+  ticker = setInterval(() => {
+    fakeTime = (fakeTime + 0.5) % total;
+    const pct = fakeTime / total;
+    document.getElementById('spFill').style.width = (pct * 100) + '%';
+    setText('spCur', fmtTime(fakeTime));
+    const ws = wavesurfers[currentId];
+    if (ws) try { ws.seekTo(Math.min(pct, 0.9999)); } catch {}
+  }, 500);
+}
+
+function stopTicker() {
+  if (ticker) { clearInterval(ticker); ticker = null; }
+}
+
+/* ──────────────────────────────────────
+   CONTROLS
+────────────────────────────────────── */
+document.getElementById('mainPlay').addEventListener('click', () => {
+  if (!currentId) return;
+  isPlaying = !isPlaying; updatePlayState();
+  isPlaying ? startTicker() : stopTicker();
+});
+document.getElementById('prevBtn').addEventListener('click', () => {
+  const idx  = filteredBeats.findIndex(b => b.id === currentId);
+  const prev = filteredBeats[idx > 0 ? idx - 1 : filteredBeats.length - 1];
+  if (prev) toggleBeat(prev.id);
+});
+document.getElementById('nextBtn').addEventListener('click', () => {
+  const idx  = filteredBeats.findIndex(b => b.id === currentId);
+  const next = filteredBeats[idx < filteredBeats.length - 1 ? idx + 1 : 0];
+  if (next) toggleBeat(next.id);
+});
+document.getElementById('spTrack').addEventListener('click', (e) => {
+  if (!currentId) return;
+  const rect = e.currentTarget.getBoundingClientRect();
+  const pct  = (e.clientX - rect.left) / rect.width;
+  const beat = BEATS.find(b => b.id === currentId);
+  fakeTime = pct * parseDur(beat.duration);
+  document.getElementById('spFill').style.width = (pct * 100) + '%';
+  const ws = wavesurfers[currentId];
+  if (ws) try { ws.seekTo(pct); } catch {}
+});
+document.getElementById('volSlider').addEventListener('input', (e) => {
+  const v = parseFloat(e.target.value);
+  document.querySelector('.sp-vol-icon').textContent = v > 0.6 ? '🔊' : v > 0.1 ? '🔉' : '🔇';
+});
+document.getElementById('spAddCart').addEventListener('click', () => { if (currentId) addToCart(currentId); });
+
+/* ──────────────────────────────────────
+   CART — XSS SAFE
+────────────────────────────────────── */
+function addToCart(id) {
+  const beat = BEATS.find(b => b.id === id);
+  if (!beat) return;
+  if (cart.find(c => c.id === id)) { showToast(`"${sanitize(beat.title)}" already in cart`, '✓'); return; }
+  cart.push({ ...beat, licenseType: 'MP3' });
+  updateCartUI();
+  showToast(`"${sanitize(beat.title)}" added to cart!`, '🛒', 'toast-orange');
+}
+
+function removeFromCart(id) {
+  cart = cart.filter(c => c.id !== id);
+  updateCartUI();
+}
+
+function updateCartUI() {
+  const count  = cart.length;
+  const dot    = document.getElementById('cartDot');
+  dot.textContent = count;
+  dot.classList.toggle('show', count > 0);
+  setText('cartItemCount', `${count} item${count !== 1 ? 's' : ''}`);
+
+  const itemsEl = document.getElementById('cartItemsEl');
+  const footer  = document.getElementById('cartFooter');
+  while (itemsEl.firstChild) itemsEl.removeChild(itemsEl.firstChild);
+
+  if (count === 0) {
+    const empty = el('div', { class:'cart-empty' },
+      el('div', { class:'cart-empty-icon' }, '🎵'),
+    );
+    const strong = el('strong', { style:'color:var(--text2);' }); strong.textContent = 'Your cart is empty';
+    const span   = el('span'); span.textContent = 'Add beats to checkout';
+    empty.appendChild(strong); empty.appendChild(span);
+    itemsEl.appendChild(empty);
+    footer.style.display = 'none';
+  } else {
+    cart.forEach(b => {
+      const item  = el('div', { class:'cart-item' });
+      const emoji = el('div', { class:'ci-emoji' }); emoji.textContent = b.emoji;
+      const info  = el('div', { class:'ci-info'  });
+      const title = el('div', { class:'ci-title' }); title.textContent = b.title;
+      const meta  = el('div', { class:'ci-meta'  }); meta.textContent  = `${b.producer} · ${b.licenseType} License · ${b.bpm} BPM`;
+      const price = el('div', { class:'ci-price' }); price.textContent = `$${b.price.toFixed(2)}`;
+      const rmBtn = el('button', { class:'ci-remove', onclick: () => removeFromCart(b.id) });
+      rmBtn.textContent = '✕';
+      info.appendChild(title); info.appendChild(meta);
+      item.appendChild(emoji); item.appendChild(info); item.appendChild(price); item.appendChild(rmBtn);
+      itemsEl.appendChild(item);
+    });
+    footer.style.display = 'block';
+    const total = cart.reduce((s, b) => s + b.price, 0);
+    setText('cartTotal', `$${total.toFixed(2)}`);
+  }
+}
+
+function selectLicense(id, type) {
+  const beat = BEATS.find(b => b.id === id);
+  const prices = { 'MP3': beat.price, 'WAV': beat.price * 1.8, 'Exclusive': beat.price * 14 };
+  const item = cart.find(c => c.id === id);
+  if (item) { item.licenseType = type; item.price = prices[type]; updateCartUI(); }
+  showToast(`${type} license — $${prices[type].toFixed(2)}`, '🎵');
+}
+
+/* ──────────────────────────────────────
+   CART PANEL
+────────────────────────────────────── */
+document.getElementById('cartToggle').addEventListener('click', () => openCart());
+function openCart()  { document.getElementById('cartModal').classList.add('open');    }
+function closeCart() { document.getElementById('cartModal').classList.remove('open'); }
+document.getElementById('cartModal').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeCart(); });
+document.getElementById('cartCheckoutBtn').addEventListener('click', doCheckout);
+
+/* ──────────────────────────────────────
+   TOAST
+────────────────────────────────────── */
+function showToast(msg, icon = '🎵', cls = 'toast-left') {
+  const container = document.getElementById('toastContainer');
+  const t = el('div', { class:`toast ${cls}` });
+  const iconEl = el('span', { class:'toast-icon' }); iconEl.textContent = icon;
+  const msgEl  = el('span'); msgEl.textContent = msg;
+  t.appendChild(iconEl); t.appendChild(msgEl);
+  container.appendChild(t);
+  requestAnimationFrame(() => requestAnimationFrame(() => t.classList.add('in')));
+  setTimeout(() => { t.classList.remove('in'); setTimeout(() => t.remove(), 400); }, 3500);
+}
+
+/* ──────────────────────────────────────
+   FILTER + SEARCH + SORT
+────────────────────────────────────── */
+function applyFilters() {
+  const search = document.getElementById('searchInp').value.toLowerCase().trim();
+  const maxBpm = parseInt(document.getElementById('bpmRange').value);
+  const sort   = document.getElementById('sortSel').value;
+
+  filteredBeats = BEATS.filter(b => {
+    if (currentFilter !== 'all' && b.genre !== currentFilter) return false;
+    if (maxBpm < 200 && b.bpm > maxBpm) return false;
+    if (search && !b.title.toLowerCase().includes(search) &&
+        !b.producer.toLowerCase().includes(search) &&
+        !b.mood.toLowerCase().includes(search) &&
+        !b.genre.toLowerCase().includes(search)) return false;
+    return true;
+  });
+
+  if (sort === 'price_asc')  filteredBeats.sort((a, b) => a.price - b.price);
+  if (sort === 'price_desc') filteredBeats.sort((a, b) => b.price - a.price);
+  if (sort === 'newest')     filteredBeats = [...filteredBeats].reverse();
+  if (sort === 'plays')      filteredBeats.sort((a, b) => parseFloat(b.plays) - parseFloat(a.plays));
+
+  setText('beatCountLabel', `Showing ${filteredBeats.length} beat${filteredBeats.length !== 1 ? 's' : ''}`);
+  viewMode === 'list' ? renderList(filteredBeats) : renderGrid(filteredBeats);
+}
+
+document.querySelectorAll('.chip').forEach(c => {
+  c.addEventListener('click', () => {
+    document.querySelectorAll('.chip').forEach(x => x.classList.remove('active'));
+    c.classList.add('active');
+    currentFilter = c.dataset.genre;
+    applyFilters();
+  });
+});
+document.getElementById('searchInp').addEventListener('input', applyFilters);
+document.getElementById('bpmRange').addEventListener('input', (e) => {
+  const v = parseInt(e.target.value);
+  setText('bpmDisp', v >= 200 ? 'Any' : String(v));
+  applyFilters();
+});
+document.getElementById('sortSel').addEventListener('change', applyFilters);
+
+/* ──────────────────────────────────────
+   VIEW TOGGLE
+────────────────────────────────────── */
+document.getElementById('listViewBtn').addEventListener('click', () => {
+  viewMode = 'list';
+  document.getElementById('beatList').classList.remove('hidden');
+  document.getElementById('beatGrid').classList.add('hidden');
+  document.getElementById('listViewBtn').style.color = 'var(--cyan)';
+  document.getElementById('gridViewBtn').style.color = '';
+  applyFilters();
+});
+document.getElementById('gridViewBtn').addEventListener('click', () => {
+  viewMode = 'grid';
+  document.getElementById('beatList').classList.add('hidden');
+  document.getElementById('beatGrid').classList.remove('hidden');
+  document.getElementById('gridViewBtn').style.color = 'var(--cyan)';
+  document.getElementById('listViewBtn').style.color = '';
+  applyFilters();
+});
+
+/* ──────────────────────────────────────
+   COUNTDOWN TIMER
+────────────────────────────────────── */
+let countdown = 23*3600 + 47*60 + 12;
+setInterval(() => {
+  countdown--;
+  if (countdown < 0) countdown = 24 * 3600;
+  const h = Math.floor(countdown / 3600);
+  const m = Math.floor((countdown % 3600) / 60);
+  const s = countdown % 60;
+  const timerEl = document.getElementById('promoTimer');
+  if (timerEl) timerEl.textContent = `⏳ ${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')} remaining`;
+}, 1000);
+
+/* ──────────────────────────────────────
+   NAV BUTTON WIRING
+────────────────────────────────────── */
+document.getElementById('navAuthBtn')?.addEventListener('click', () => openModal('authModal'));
+document.getElementById('navUploadBtn')?.addEventListener('click', () => {
+  if (!AUTH.isLoggedIn) { openModal('authModal'); return; }
+  openModal('uploadModal');
+});
+document.getElementById('navDashBtn')?.addEventListener('click', () => {
+  if (!AUTH.isLoggedIn) { openModal('authModal'); return; }
+  openModal('dashModal'); loadDashboard();
+});
+document.getElementById('navOnboardBtn')?.addEventListener('click', () => openModal('onboardModal'));
+document.getElementById('navSignOutBtn')?.addEventListener('click', () => AUTH.signOut());
+document.getElementById('sellBtn')?.addEventListener('click', () => {
+  if (AUTH.isLoggedIn) openModal('uploadModal');
+  else openModal('onboardModal');
+});
+// Hero upload button
+document.querySelector('button.btn-primary')?.addEventListener('click', () => {
+  if (!AUTH.isLoggedIn) { openModal('authModal'); return; }
+  openModal('uploadModal');
+});
+
+/* ──────────────────────────────────────
+   KEYBOARD
+────────────────────────────────────── */
+document.addEventListener('keydown', (e) => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+  if (e.code === 'Space')      { e.preventDefault(); document.getElementById('mainPlay').click(); }
+  if (e.code === 'ArrowRight') document.getElementById('nextBtn').click();
+  if (e.code === 'ArrowLeft')  document.getElementById('prevBtn').click();
+  if (e.code === 'Escape')     {
+    document.querySelectorAll('.modal-overlay.open').forEach(m => m.classList.remove('open'));
+    closeCart();
+  }
+});
+
+/* ──────────────────────────────────────
+   INIT
+────────────────────────────────────── */
+async function init() {
+  // Try to load live beats from API; on success, replace demo data
+  const liveBeats = await loadBeats();
+  if (liveBeats && liveBeats.length > 0) {
+    BEATS = liveBeats;
+    filteredBeats = [...BEATS];
+  }
+
+  renderList(filteredBeats);
+  renderGrid(filteredBeats);
+  renderNewReleases();
+  renderProducers();
+  renderProducersBar();
+  initHeroWS();
+  document.getElementById('listViewBtn').style.color = 'var(--cyan)';
+
+  // Health check (non-blocking)
+  setTimeout(checkHealth, 1200);
+}
+
+init();
+
+</script>
+</body>
+</html>
